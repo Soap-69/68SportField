@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title th:text="${product.name} + ' — Card Showcase'">Product — Card Showcase</title>
+  <!-- Meta description -->
+  <meta name="description"
+        th:if="${product.description != null and !#strings.isEmpty(product.description)}"
+        th:content="${#strings.length(product.description) > 160 ? #strings.substring(product.description, 0, 157) + '...' : product.description}">
+  <!-- Open Graph -->
+  <meta property="og:type"        content="product">
+  <meta property="og:title"       th:content="${product.name} + ' — Card Showcase'">
+  <meta property="og:description"
+        th:content="${product.description != null and !#strings.isEmpty(product.description)} ? (${#strings.length(product.description) > 160 ? #strings.substring(product.description, 0, 157) + '...' : product.description}) : 'Premium trading card products at Card Showcase.'">
+  <meta property="og:image"       th:if="${not #lists.isEmpty(images)}" th:content="${images[0].imageUrl}">
+</head>
+<body>
+<div layout:fragment="content">
+
+  <!-- ── Breadcrumb ── -->
+  <div th:replace="~{fragments/breadcrumb :: breadcrumbBar(${breadcrumbs})}"></div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 1 — Product Hero (DARK)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-dark cs-pd-hero">
+    <div class="cs-container">
+      <div class="cs-pd-layout">
+
+        <!-- ── Left: image gallery ── -->
+        <div class="cs-pd-gallery">
+
+          <!-- Main image -->
+          <div class="cs-pg-main-wrap">
+            <img th:if="${not #lists.isEmpty(images)}"
+                 th:src="${images[0].imageUrl}"
+                 th:alt="${product.name}"
+                 id="pgMainImage"
+                 class="cs-pg-main-img">
+            <!-- Placeholder when no images -->
+            <img th:if="${#lists.isEmpty(images)}"
+                 src="/images/no-image.svg"
+                 alt="No image available"
+                 id="pgMainImage"
+                 class="cs-pg-main-img">
+          </div>
+
+          <!-- Thumbnails (only when >1 image) -->
+          <div class="cs-pg-thumbs" th:if="${#lists.size(images) > 1}">
+            <button th:each="img, stat : ${images}"
+                    type="button"
+                    class="cs-pg-thumb"
+                    th:classappend="${stat.first} ? ' cs-pg-thumb-active'"
+                    th:attr="data-full-src=${img.imageUrl}"
+                    th:aria-label="${'View image ' + stat.count}">
+              <img th:src="${img.imageUrl}"
+                   th:alt="${product.name}"
+                   loading="lazy">
+            </button>
+          </div>
+
+        </div>
+
+        <!-- ── Right: product info ── -->
+        <div class="cs-pd-info">
+
+          <!-- Brand -->
+          <div class="cs-pd-brand"
+               th:if="${product.brand != null and !#strings.isEmpty(product.brand)}"
+               th:text="${#strings.toUpperCase(product.brand)}">BRAND</div>
+
+          <!-- Name -->
+          <h1 class="cs-pd-name" th:text="${product.name}">Product Name</h1>
+
+          <!-- Configuration -->
+          <p class="cs-pd-config"
+             th:if="${product.configuration != null and !#strings.isEmpty(product.configuration)}"
+             th:text="${product.configuration}">12 boxes per case</p>
+
+          <!-- Price -->
+          <div class="cs-pd-price-wrap">
+            <th:block th:if="${product.isOnSale and product.originalPrice != null}">
+              <span class="cs-pd-price-original"
+                    th:text="${'$' + #numbers.formatDecimal(product.originalPrice, 1, 'COMMA', 2, 'POINT')}"></span>
+              <span class="cs-pd-price cs-pd-price-sale"
+                    th:text="${'$' + #numbers.formatDecimal(product.price, 1, 'COMMA', 2, 'POINT')}"></span>
+            </th:block>
+            <th:block th:unless="${product.isOnSale and product.originalPrice != null}">
+              <span th:if="${product.price != null}"
+                    class="cs-pd-price"
+                    th:text="${'$' + #numbers.formatDecimal(product.price, 1, 'COMMA', 2, 'POINT')}"></span>
+              <span th:unless="${product.price != null}" class="cs-pd-price">Contact for price</span>
+            </th:block>
+          </div>
+
+          <!-- Badges -->
+          <div class="cs-pd-badges">
+            <span th:if="${product.isOnSale}"   class="cs-badge cs-badge-sale">Sale</span>
+            <span th:if="${product.isNew}"      class="cs-badge cs-badge-new">New</span>
+            <span th:if="${product.isPreOrder}" class="cs-badge cs-badge-preorder">Pre-Order</span>
+            <span th:if="${product.isTrending}" class="cs-badge cs-badge-trending">Trending</span>
+            <span th:if="${product.isBestSeller}" class="cs-badge cs-badge-new" style="background:#1a6e8a;">Best Seller</span>
+          </div>
+
+          <!-- Divider -->
+          <hr class="cs-pd-divider">
+
+          <!-- CTA — scrolls to inquiry form -->
+          <a href="#inquirySection" class="cs-btn-pill cs-btn-pill-blue cs-pd-cta">
+            Inquire About This Product
+          </a>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 2 — Product Details (LIGHT)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-light cs-section"
+           th:if="${(product.highlights != null and !#strings.isEmpty(product.highlights))
+                   or (product.boxBreakInfo != null and !#strings.isEmpty(product.boxBreakInfo))
+                   or (product.description != null and !#strings.isEmpty(product.description))}">
+    <div class="cs-container">
+      <div class="cs-pd-details">
+
+        <!-- Highlights -->
+        <div class="cs-pd-detail-block"
+             th:if="${product.highlights != null and !#strings.isEmpty(product.highlights)}">
+          <h2 class="cs-pd-detail-heading">Product Highlights</h2>
+          <div class="cs-pd-detail-body cs-pd-preformatted"
+               th:text="${product.highlights}"></div>
+        </div>
+
+        <!-- Box Break -->
+        <div class="cs-pd-detail-block"
+             th:if="${product.boxBreakInfo != null and !#strings.isEmpty(product.boxBreakInfo)}">
+          <h2 class="cs-pd-detail-heading">Box Break</h2>
+          <div class="cs-pd-detail-body cs-pd-preformatted"
+               th:text="${product.boxBreakInfo}"></div>
+        </div>
+
+        <!-- Description -->
+        <div class="cs-pd-detail-block"
+             th:if="${product.description != null and !#strings.isEmpty(product.description)}">
+          <h2 class="cs-pd-detail-heading">Description</h2>
+          <div class="cs-pd-detail-body cs-pd-preformatted"
+               th:text="${product.description}"></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 3 — Inquiry Form (DARK)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-dark cs-section" id="inquirySection">
+    <div class="cs-container">
+
+      <!-- Success banner (shown after form submission redirect) -->
+      <div th:if="${inquirySuccess}" class="cs-inquiry-success">
+        <span>&#10003; Inquiry submitted! We'll be in touch shortly.</span>
+      </div>
+
+      <div class="cs-section-header">
+        <h2 class="cs-headline-lg cs-section-title-dark">Interested? Get in Touch</h2>
+        <p class="cs-section-subtitle-dark">
+          Leave your details and we'll get back to you with pricing and availability.
+        </p>
+      </div>
+
+      <div class="cs-inquiry-form-wrap">
+        <!-- No action/method — submitted via fetch() in Phase 7 -->
+        <form id="inquiryForm" novalidate>
+          <input type="hidden" name="productId" th:value="${product.id}">
+
+          <div class="cs-inquiry-row">
+            <!-- Name -->
+            <div class="cs-inquiry-field">
+              <label class="cs-inquiry-label">Name <span class="cs-inquiry-req">*</span></label>
+              <input type="text" name="customerName" class="cs-inquiry-input"
+                     placeholder="Your full name" required autocomplete="name">
+            </div>
+            <!-- Email -->
+            <div class="cs-inquiry-field">
+              <label class="cs-inquiry-label">Email <span class="cs-inquiry-req">*</span></label>
+              <input type="email" name="customerEmail" class="cs-inquiry-input"
+                     placeholder="your@email.com" required autocomplete="email">
+            </div>
+          </div>
+
+          <div class="cs-inquiry-row">
+            <!-- Phone -->
+            <div class="cs-inquiry-field">
+              <label class="cs-inquiry-label">Phone <span class="cs-inquiry-opt">Optional</span></label>
+              <input type="tel" name="customerPhone" class="cs-inquiry-input"
+                     placeholder="+1 (555) 000-0000" autocomplete="tel">
+            </div>
+            <!-- Company -->
+            <div class="cs-inquiry-field">
+              <label class="cs-inquiry-label">Company <span class="cs-inquiry-opt">Optional</span></label>
+              <input type="text" name="customerCompany" class="cs-inquiry-input"
+                     placeholder="Your company name" autocomplete="organization">
+            </div>
+          </div>
+
+          <!-- Quantity -->
+          <div class="cs-inquiry-field">
+            <label class="cs-inquiry-label">Quantity <span class="cs-inquiry-opt">Optional</span></label>
+            <input type="number" name="quantity" class="cs-inquiry-input"
+                   placeholder="How many cases/boxes?" min="1" style="max-width:280px;">
+          </div>
+
+          <!-- Message -->
+          <div class="cs-inquiry-field">
+            <label class="cs-inquiry-label">Message <span class="cs-inquiry-opt">Optional</span></label>
+            <textarea name="message" class="cs-inquiry-input cs-inquiry-textarea"
+                      rows="4"
+                      placeholder="Tell us about your requirements…"></textarea>
+          </div>
+
+          <button type="submit" class="cs-btn-pill cs-btn-pill-blue cs-inquiry-submit">
+            Submit Inquiry
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 4 — Related Products (LIGHT)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-light cs-section"
+           th:if="${not #lists.isEmpty(relatedProducts)}">
+    <div class="cs-container">
+      <div class="cs-section-header">
+        <h2 class="cs-headline-md cs-section-title-light">You Might Also Like</h2>
+      </div>
+      <div class="cs-product-grid">
+        <div th:each="p : ${relatedProducts}">
+          <div th:replace="~{fragments/product-card :: productCard(${p}, 'light', ${relatedImages[p.id]})}"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<th:block layout:fragment="scripts">
+  <script th:src="@{/js/product-gallery.js}" defer></script>
+  <script th:src="@{/js/inquiry-form.js}" defer></script>
+</th:block>
+
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title th:text="${q != null and !#strings.isEmpty(q)} ? 'Search: ' + ${q} + ' — Card Showcase' : 'Search Products — Card Showcase'">Search — Card Showcase</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <!-- Breadcrumb -->
+  <div th:replace="~{fragments/breadcrumb :: breadcrumbBar(${breadcrumbs})}"></div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SEARCH RESULTS — LIGHT SECTION
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-light cs-section">
+    <div class="cs-container">
+
+      <!-- Header row: title + count + sort -->
+      <div class="cs-search-header">
+        <div class="cs-search-title-row">
+          <h1 class="cs-headline-md cs-section-title-light"
+              th:if="${q != null and !#strings.isEmpty(q)}">
+            Results for &#8220;<span th:text="${q}"></span>&#8221;
+          </h1>
+          <h1 class="cs-headline-md cs-section-title-light"
+              th:unless="${q != null and !#strings.isEmpty(q)}">All Products</h1>
+          <span class="cs-search-count"
+                th:text="${results.totalElements} + ' product' + (${results.totalElements} != 1 ? 's' : '')">
+            0 products
+          </span>
+        </div>
+
+        <!-- Sort selector -->
+        <form method="get" action="/search" class="cs-search-sort-form">
+          <input type="hidden" name="q" th:value="${q}">
+          <select name="sort" class="cs-search-sort-select" onchange="this.form.submit()">
+            <option value="relevance" th:selected="${sort == 'relevance'}">Relevance</option>
+            <option value="price-asc" th:selected="${sort == 'price-asc'}">Price: Low to High</option>
+            <option value="price-desc" th:selected="${sort == 'price-desc'}">Price: High to Low</option>
+            <option value="newest" th:selected="${sort == 'newest'}">Newest</option>
+          </select>
+        </form>
+      </div>
+
+      <!-- Product grid -->
+      <div class="cs-product-grid" th:if="${not results.isEmpty()}">
+        <div th:each="p : ${results.content}">
+          <div th:replace="~{fragments/product-card :: productCard(${p}, 'light', ${primaryImages[p.id]})}"></div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="cs-search-empty" th:if="${results.isEmpty()}">
+        <p th:if="${q != null and !#strings.isEmpty(q)}">
+          No products found for &#8220;<strong th:text="${q}"></strong>&#8221;.
+          Try a different search term.
+        </p>
+        <p th:unless="${q != null and !#strings.isEmpty(q)}">
+          No products are currently available.
+        </p>
+        <a th:href="@{/}" class="cs-btn-pill cs-btn-pill-blue" style="margin-top:24px;display:inline-block;">
+          Back to Home
+        </a>
+      </div>
+
+      <!-- Pagination -->
+      <div class="cs-pagination" th:if="${results.totalPages > 1}">
+        <a th:if="${!results.first}"
+           th:href="@{/search(q=${q},sort=${sort},page=${results.number - 1})}"
+           class="cs-page-btn">&#8249;</a>
+
+        <th:block th:each="i : ${#numbers.sequence(0, results.totalPages - 1)}">
+          <a th:if="${i >= results.number - 2 and i <= results.number + 2}"
+             th:href="@{/search(q=${q},sort=${sort},page=${i})}"
+             class="cs-page-btn"
+             th:classappend="${i == results.number} ? ' cs-page-btn-active'"
+             th:text="${i + 1}">1</a>
+        </th:block>
+
+        <a th:if="${!results.last}"
+           th:href="@{/search(q=${q},sort=${sort},page=${results.number + 1})}"
+           class="cs-page-btn">&#8250;</a>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

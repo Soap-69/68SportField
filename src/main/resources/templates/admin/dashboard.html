@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+    <!-- Page header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-0">Dashboard</h2>
+            <p class="text-muted small mb-0">Welcome back! Here's what's happening.</p>
+        </div>
+        <span class="text-muted small">
+            <i class="bi bi-calendar3 me-1"></i>
+            <span th:text="${#temporals.format(#temporals.createNow(), 'MMMM d, yyyy')}">Today</span>
+        </span>
+    </div>
+
+    <!-- Stats row -->
+    <div class="row g-4 mb-4">
+
+        <!-- Total Products -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3 p-4">
+                    <div class="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center bg-primary bg-opacity-10"
+                         style="width:52px;height:52px;">
+                        <i class="bi bi-box-seam fs-4 text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold lh-1 mb-1" th:text="${totalProducts}">0</div>
+                        <div class="text-muted small">Total Products</div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 px-4 pb-3 pt-0">
+                    <a th:href="@{/admin/products}" class="text-decoration-none small text-primary">
+                        View all <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Categories -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3 p-4">
+                    <div class="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center bg-success bg-opacity-10"
+                         style="width:52px;height:52px;">
+                        <i class="bi bi-folder2-open fs-4 text-success"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold lh-1 mb-1" th:text="${totalCategories}">0</div>
+                        <div class="text-muted small">Total Categories</div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 px-4 pb-3 pt-0">
+                    <a th:href="@{/admin/categories}" class="text-decoration-none small text-success">
+                        Manage <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Inquiries -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3 p-4">
+                    <div class="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center bg-warning bg-opacity-10"
+                         style="width:52px;height:52px;">
+                        <i class="bi bi-envelope-exclamation fs-4 text-warning"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold lh-1 mb-1" th:text="${newInquiries}">0</div>
+                        <div class="text-muted small">New Inquiries</div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 px-4 pb-3 pt-0">
+                    <a th:href="@{/admin/inquiries(status='NEW')}" class="text-decoration-none small text-warning">
+                        Review <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Banners -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3 p-4">
+                    <div class="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center bg-info bg-opacity-10"
+                         style="width:52px;height:52px;">
+                        <i class="bi bi-images fs-4 text-info"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold lh-1 mb-1" th:text="${activeBanners}">0</div>
+                        <div class="text-muted small">Active Banners</div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 px-4 pb-3 pt-0">
+                    <a th:href="@{/admin/banners}" class="text-decoration-none small text-info">
+                        Manage <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Quick links -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-bottom fw-semibold py-3">
+            Quick Actions
+        </div>
+        <div class="card-body p-3">
+            <div class="row g-2">
+                <div class="col-auto">
+                    <a th:href="@{/admin/categories/create}" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-folder-plus me-1"></i>Add Category
+                    </a>
+                </div>
+                <div class="col-auto">
+                    <a th:href="@{/admin/products/create}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i>Add Product
+                    </a>
+                </div>
+                <div class="col-auto">
+                    <a th:href="@{/admin/inquiries}" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-envelope me-1"></i>View Inquiries
+                    </a>
+                </div>
+                <div class="col-auto">
+                    <a th:href="@{/admin/banners/create}" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-image me-1"></i>Add Banner
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

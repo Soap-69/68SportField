@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!--
+  Fragment: productCard(product, variant, imageUrl)
+    product  — Product entity
+    variant  — "dark" or "light"
+    imageUrl — primary image URL string (nullable)
+
+  The entire card is an <a> tag linking to /product/{slug}.
+  CSS on .cs-card already sets text-decoration:none and inherits
+  text colors per variant, so the anchor wrapper is invisible to styling.
+-->
+<a th:fragment="productCard(product, variant, imageUrl)"
+   th:href="@{/product/{slug}(slug=${product.slug})}"
+   th:class="|cs-card cs-card-${variant}|">
+
+  <!-- Image area -->
+  <div class="cs-card-img-wrap">
+    <!-- Badges -->
+    <div class="cs-card-badges">
+      <span th:if="${product.isOnSale}"   class="cs-badge cs-badge-sale">Sale</span>
+      <span th:if="${product.isNew}"      class="cs-badge cs-badge-new">New</span>
+      <span th:if="${product.isPreOrder}" class="cs-badge cs-badge-preorder">Pre-Order</span>
+    </div>
+
+    <!-- Product image -->
+    <img th:if="${imageUrl != null}"
+         th:src="${imageUrl}"
+         th:alt="${product.name}"
+         class="cs-card-img"
+         loading="lazy">
+
+    <!-- Placeholder when no image -->
+    <img th:unless="${imageUrl != null}"
+         src="/images/no-image.svg"
+         alt="No image available"
+         class="cs-card-img cs-card-img-no-image"
+         loading="lazy">
+  </div>
+
+  <!-- Card body -->
+  <div class="cs-card-body">
+    <div class="cs-card-brand" th:text="${product.brand ?: ''}"></div>
+    <div class="cs-card-name"  th:text="${product.name}">Product Name</div>
+
+    <!-- Price -->
+    <div class="cs-card-price-wrap">
+      <th:block th:if="${product.isOnSale and product.originalPrice != null}">
+        <span class="cs-card-price-original"
+              th:text="${'$' + #numbers.formatDecimal(product.originalPrice, 1, 'COMMA', 2, 'POINT')}"></span>
+        <span class="cs-card-price cs-card-price-sale"
+              th:text="${'$' + #numbers.formatDecimal(product.price, 1, 'COMMA', 2, 'POINT')}"></span>
+      </th:block>
+      <th:block th:unless="${product.isOnSale and product.originalPrice != null}">
+        <span th:if="${product.price != null}"
+              class="cs-card-price"
+              th:text="${'$' + #numbers.formatDecimal(product.price, 1, 'COMMA', 2, 'POINT')}"></span>
+        <span th:unless="${product.price != null}"
+              class="cs-card-price">Contact for price</span>
+      </th:block>
+    </div>
+
+    <!-- Inquire link — product detail page has the inquiry form -->
+    <span class="cs-card-inquire">Inquire ›</span>
+  </div>
+
+</a>
+
+</body>
+</html>

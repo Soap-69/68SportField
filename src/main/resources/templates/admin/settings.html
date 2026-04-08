@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head><title>Account Settings</title></head>
+<body>
+<div layout:fragment="content">
+
+    <div class="mb-4">
+        <h2 class="h4 fw-bold mb-1">Account Settings</h2>
+        <p class="text-muted mb-0" style="font-size:.875rem;">Manage your admin username and password.</p>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- ── Card 1: Profile / Username ── -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-person-circle me-2 text-primary"></i>Profile
+                </div>
+                <div class="card-body p-4">
+
+                    <p class="text-muted mb-3" style="font-size:.875rem;">
+                        Current username:
+                        <strong class="text-dark" th:text="${admin.username}">admin</strong>
+                    </p>
+
+                    <form th:action="@{/admin/settings/update-profile}" method="post" novalidate>
+
+                        <div class="mb-3">
+                            <label for="newUsername" class="form-label fw-medium">New Username</label>
+                            <input type="text" id="newUsername" name="newUsername"
+                                   class="form-control"
+                                   th:value="${admin.username}"
+                                   maxlength="50"
+                                   required
+                                   autocomplete="username">
+                        </div>
+
+                        <div class="alert alert-warning d-flex align-items-start gap-2 py-2" role="alert"
+                             style="font-size:.8rem;">
+                            <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+                            <span>You will be signed out and redirected to the login page after changing your username.</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>Update Username
+                        </button>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Card 2: Change Password ── -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-shield-lock me-2 text-primary"></i>Change Password
+                </div>
+                <div class="card-body p-4">
+
+                    <form th:action="@{/admin/settings/update-password}" method="post" novalidate>
+
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label fw-medium">Current Password</label>
+                            <input type="password" id="currentPassword" name="currentPassword"
+                                   class="form-control"
+                                   required
+                                   autocomplete="current-password">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label fw-medium">New Password</label>
+                            <input type="password" id="newPassword" name="newPassword"
+                                   class="form-control"
+                                   required
+                                   minlength="8"
+                                   autocomplete="new-password">
+                            <div class="form-text">Minimum 8 characters.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="confirmPassword" class="form-label fw-medium">Confirm New Password</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword"
+                                   class="form-control"
+                                   required
+                                   autocomplete="new-password">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-lock me-1"></i>Update Password
+                        </button>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</body>
+</html>

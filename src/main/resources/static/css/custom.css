@@ -1,0 +1,62 @@
+/* ============================================================
+   Brand Customization — One file to change your site's look
+   ============================================================
+   COLORS    → edit :root variables below
+   SITE NAME → edit the text in layout/main.html
+                 search: "CARD SHOWCASE" (appears twice: desktop + mobile logo)
+   FOOTER    → edit contact info and links in layout/main.html
+                 search: "cs-footer" section near the bottom
+   LOGO      → see the logo override section below
+   FONT      → see the font override section below
+   ============================================================ */
+
+:root {
+  /* ── Brand colors ────────────────────────────────────────────
+     Change these to rebrand the entire site at once           */
+
+  /* Main CTA button color (also used for links and badges) */
+  --brand-primary:          #0071e3;
+
+  /* Navigation bar background (glass effect) */
+  --nav-bg:                 rgba(0, 0, 0, 0.82);
+
+  /* Dark section backgrounds (hero, product cards, inquiry form) */
+  --color-bg-dark:          #000000;
+
+  /* Light section backgrounds (category browse, product details) */
+  --color-bg-light:         #f5f5f7;
+
+  /* Accent color — applied to buttons, links, and focus rings */
+  --color-accent-blue:      #0071e3;   /* same as --brand-primary above */
+  --color-link-light:       #0066cc;   /* links on light backgrounds */
+  --color-link-dark:        #2997ff;   /* links on dark backgrounds */
+
+  /* Card surface color inside dark sections */
+  --color-surface-dark-1:   #272729;
+
+  /* ── Badge colors ────────────────────────────────────────────
+     Shown on product cards: Sale, New, Pre-Order, Trending    */
+  --color-badge-sale:       #e30000;
+  --color-badge-new:        #2d8a2d;
+  --color-badge-preorder:   #0071e3;
+  --color-badge-trending:   #e36d00;
+}
+
+/* ── Logo ────────────────────────────────────────────────────────
+   Replace the text logo with your own image:
+
+   .cs-nav-logo {
+     display: inline-block;
+     width: 120px;
+     height: 32px;
+     background: url('/images/logo.svg') no-repeat center/contain;
+     text-indent: -9999px;   // hide the text
+   }
+   ──────────────────────────────────────────────────────────────── */
+
+/* ── Font overrides ──────────────────────────────────────────────
+   To change the site font, uncomment and edit:
+
+   @import url('https://fonts.googleapis.com/css2?family=YOUR+FONT:wght@400;500;600;700&display=swap');
+   body { font-family: 'YOUR FONT', sans-serif; }
+   ──────────────────────────────────────────────────────────────── */

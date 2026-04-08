@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'admin123', bcrypt.gensalt\\(rounds=10\\)\\).decode\\(\\)\\)\")",
+      "Bash(python -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'admin123', bcrypt.gensalt\\(rounds=10\\)\\).decode\\(\\)\\)\")",
+      "Bash(node -e \"const bcrypt=require\\('bcrypt'\\); bcrypt.hash\\('admin123',10\\).then\\(h=>console.log\\(h\\)\\);\")",
+      "Bash(./mvnw compile:*)",
+      "Bash(grep -E \"^\\\\$2a|ERROR|BUILD|Exception\")",
+      "Bash(./mvnw test-compile:*)",
+      "Bash(export JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")",
+      "Bash(grep -E '^\\\\$2a|^\\\\[INFO\\\\] \\\\$')",
+      "Bash(mvn clean:*)",
+      "Bash(./mvnw clean:*)",
+      "Bash(cmd /c \"set JAVA_HOME=C:\\\\Users\\\\18572\\\\.jdks\\\\openjdk-21.0.7 && mvnw.cmd clean compile 2>&1\")",
+      "Read(//c/Users/18572/.jdks/**)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files/Microsoft/**)",
+      "Bash(cmd /c \"set JAVA_HOME=C:\\\\Users\\\\18572\\\\.jdks\\\\openjdk-17.0.2 && mvnw.cmd clean compile\")",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(mvn compile:*)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Java/jdk-21\" ./mvnw compile -q)",
+      "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw compile -q)",
+      "Bash(chmod +x:*)"
+    ]
+  }
+}

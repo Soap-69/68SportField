@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head><title>Product Management</title></head>
+<body>
+<div layout:fragment="content">
+
+    <!-- ── Page header ── -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-0">Product Management</h2>
+            <p class="text-muted small mb-0">
+                <span th:text="${products.totalElements}">0</span> product(s) found
+            </p>
+        </div>
+        <a th:href="@{/admin/products/create}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Add Product
+        </a>
+    </div>
+
+    <!-- ── Filter bar ── -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <form th:action="@{/admin/products}" method="get" class="row g-2 align-items-end">
+                <!-- Search -->
+                <div class="col-sm-4">
+                    <label class="form-label small fw-medium mb-1">Search by name</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="search" class="form-control"
+                               placeholder="Product name…"
+                               th:value="${search}">
+                    </div>
+                </div>
+
+                <!-- Category -->
+                <div class="col-sm-3">
+                    <label class="form-label small fw-medium mb-1">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All categories</option>
+                        <option th:each="opt : ${l3Options}"
+                                th:value="${opt.id()}"
+                                th:text="${opt.label()}"
+                                th:selected="${categoryId != null and categoryId == opt.id()}">
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Status -->
+                <div class="col-sm-2">
+                    <label class="form-label small fw-medium mb-1">Status / Flag</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="" th:selected="${status == null or status == ''}">All</option>
+                        <option value="active"      th:selected="${status == 'active'}">Active</option>
+                        <option value="inactive"    th:selected="${status == 'inactive'}">Inactive</option>
+                        <option value="sale"        th:selected="${status == 'sale'}">On Sale</option>
+                        <option value="new"         th:selected="${status == 'new'}">New Release</option>
+                        <option value="trending"    th:selected="${status == 'trending'}">Trending</option>
+                        <option value="best_seller" th:selected="${status == 'best_seller'}">Best Seller</option>
+                        <option value="pre_order"   th:selected="${status == 'pre_order'}">Pre-Order</option>
+                    </select>
+                </div>
+
+                <!-- Buttons -->
+                <div class="col-auto d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a th:href="@{/admin/products}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-circle me-1"></i>Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Product table ── -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3" style="width:70px;">Image</th>
+                            <th>Name</th>
+                            <th>Brand</th>
+                            <th style="min-width:130px;">Category</th>
+                            <th style="width:110px;">Price</th>
+                            <th style="min-width:190px;">Flags</th>
+                            <th class="text-center" style="width:90px;">Status</th>
+                            <th class="text-end pe-3" style="width:110px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr th:if="${#lists.isEmpty(products.content)}">
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+                                No products found.
+                                <a th:href="@{/admin/products/create}">Add the first one.</a>
+                            </td>
+                        </tr>
+
+                        <tr th:each="p : ${products.content}">
+
+                            <!-- Thumbnail -->
+                            <td class="ps-3">
+                                <img th:if="${primaryImages[p.id] != null}"
+                                     th:src="${primaryImages[p.id]}"
+                                     alt="thumbnail"
+                                     class="rounded"
+                                     style="width:56px;height:56px;object-fit:cover;">
+                                <div th:unless="${primaryImages[p.id] != null}"
+                                     class="d-flex flex-column align-items-center gap-1">
+                                    <div class="rounded bg-light d-flex align-items-center justify-content-center"
+                                         style="width:56px;height:56px;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                    <span class="badge bg-warning text-dark" style="font-size:.6rem;">No images</span>
+                                </div>
+                            </td>
+
+                            <!-- Name -->
+                            <td>
+                                <div class="fw-medium" th:text="${p.name}"></div>
+                                <code class="small text-secondary" th:text="${p.slug}"></code>
+                            </td>
+
+                            <!-- Brand -->
+                            <td class="text-muted small" th:text="${p.brand ?: '—'}"></td>
+
+                            <!-- Category (3-level path, eagerly loaded via EntityGraph) -->
+                            <td th:with="cat=${p.category}">
+                                <span th:if="${cat != null}">
+                                    <small class="text-muted d-block lh-sm"
+                                           th:if="${cat.parent != null and cat.parent.parent != null}"
+                                           th:text="${cat.parent.parent.name}"></small>
+                                    <small class="text-muted d-block lh-sm"
+                                           th:if="${cat.parent != null}"
+                                           th:text="${cat.parent.name}"></small>
+                                    <span class="fw-medium" th:text="${cat.name}"></span>
+                                </span>
+                                <span th:unless="${cat != null}" class="text-muted">—</span>
+                            </td>
+
+                            <!-- Price -->
+                            <td>
+                                <span th:if="${p.price != null}">
+                                    <del th:if="${p.isOnSale and p.originalPrice != null}"
+                                         class="text-muted d-block small lh-1"
+                                         th:text="${'$' + #numbers.formatDecimal(p.originalPrice, 1, 'COMMA', 2, 'POINT')}"></del>
+                                    <span th:class="${p.isOnSale} ? 'text-danger fw-semibold' : ''"
+                                          th:text="${'$' + #numbers.formatDecimal(p.price, 1, 'COMMA', 2, 'POINT')}"></span>
+                                </span>
+                                <span th:unless="${p.price != null}" class="text-muted">—</span>
+                            </td>
+
+                            <!-- Flags (clickable badge-buttons) -->
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+
+                                    <form th:action="@{/admin/products/{id}/toggle-flag(id=${p.id})}" method="post" class="m-0">
+                                        <input type="hidden" name="flag" value="isOnSale">
+                                        <button type="submit" title="Toggle On Sale"
+                                                th:class="${p.isOnSale} ? 'btn btn-danger btn-xs py-0 px-1' : 'btn btn-outline-secondary btn-xs py-0 px-1'"
+                                                style="font-size:.7rem;">Sale</button>
+                                    </form>
+
+                                    <form th:action="@{/admin/products/{id}/toggle-flag(id=${p.id})}" method="post" class="m-0">
+                                        <input type="hidden" name="flag" value="isNew">
+                                        <button type="submit" title="Toggle New"
+                                                th:class="${p.isNew} ? 'btn btn-success btn-xs py-0 px-1' : 'btn btn-outline-secondary btn-xs py-0 px-1'"
+                                                style="font-size:.7rem;">New</button>
+                                    </form>
+
+                                    <form th:action="@{/admin/products/{id}/toggle-flag(id=${p.id})}" method="post" class="m-0">
+                                        <input type="hidden" name="flag" value="isTrending">
+                                        <button type="submit" title="Toggle Trending"
+                                                th:class="${p.isTrending} ? 'btn btn-warning btn-xs py-0 px-1' : 'btn btn-outline-secondary btn-xs py-0 px-1'"
+                                                style="font-size:.7rem;">Trending</button>
+                                    </form>
+
+                                    <form th:action="@{/admin/products/{id}/toggle-flag(id=${p.id})}" method="post" class="m-0">
+                                        <input type="hidden" name="flag" value="isBestSeller">
+                                        <button type="submit" title="Toggle Best Seller"
+                                                th:class="${p.isBestSeller} ? 'btn btn-primary btn-xs py-0 px-1' : 'btn btn-outline-secondary btn-xs py-0 px-1'"
+                                                style="font-size:.7rem;">Best Seller</button>
+                                    </form>
+
+                                    <form th:action="@{/admin/products/{id}/toggle-flag(id=${p.id})}" method="post" class="m-0">
+                                        <input type="hidden" name="flag" value="isPreOrder">
+                                        <button type="submit" title="Toggle Pre-Order"
+                                                th:class="${p.isPreOrder} ? 'btn btn-info btn-xs py-0 px-1 text-white' : 'btn btn-outline-secondary btn-xs py-0 px-1'"
+                                                style="font-size:.7rem;">Pre-Order</button>
+                                    </form>
+
+                                    <form th:action="@{/admin/products/{id}/toggle-flag(id=${p.id})}" method="post" class="m-0">
+                                        <input type="hidden" name="flag" value="isFeatured">
+                                        <button type="submit" title="Toggle Featured"
+                                                th:class="${p.isFeatured} ? 'btn btn-dark btn-xs py-0 px-1' : 'btn btn-outline-secondary btn-xs py-0 px-1'"
+                                                style="font-size:.7rem;">Featured</button>
+                                    </form>
+
+                                </div>
+                            </td>
+
+                            <!-- Status (clickable toggle) -->
+                            <td class="text-center">
+                                <form th:action="@{/admin/products/{id}/toggle-active(id=${p.id})}" method="post" class="m-0">
+                                    <button type="submit"
+                                            th:class="${p.isActive} ? 'badge bg-success border-0 py-1 px-2' : 'badge bg-secondary border-0 py-1 px-2'"
+                                            style="font-size:.75rem; cursor:pointer;">
+                                        <span th:text="${p.isActive} ? 'Active' : 'Inactive'"></span>
+                                    </button>
+                                </form>
+                            </td>
+
+                            <!-- Actions -->
+                            <td class="text-end pe-3">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <a th:href="@{/admin/products/{id}/edit(id=${p.id})}"
+                                       class="btn btn-sm btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            title="Delete"
+                                            data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                            th:attr="data-prod-id=${p.id}, data-prod-name=${p.name}">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
+                            </td>
+
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Pagination ── -->
+    <nav th:if="${products.totalPages > 1}" class="mt-3">
+        <ul class="pagination pagination-sm justify-content-end mb-0">
+
+            <li th:class="${products.first} ? 'page-item disabled' : 'page-item'">
+                <a class="page-link"
+                   th:href="@{/admin/products(page=${products.number - 1},size=${products.size},search=${search},categoryId=${categoryId},status=${status})}">
+                    ‹
+                </a>
+            </li>
+
+            <li th:each="i : ${#numbers.sequence(0, products.totalPages - 1)}"
+                th:if="${i >= products.number - 2 and i <= products.number + 2}"
+                th:class="${i == products.number} ? 'page-item active' : 'page-item'">
+                <a class="page-link"
+                   th:href="@{/admin/products(page=${i},size=${products.size},search=${search},categoryId=${categoryId},status=${status})}"
+                   th:text="${i + 1}"></a>
+            </li>
+
+            <li th:class="${products.last} ? 'page-item disabled' : 'page-item'">
+                <a class="page-link"
+                   th:href="@{/admin/products(page=${products.number + 1},size=${products.size},search=${search},categoryId=${categoryId},status=${status})}">
+                    ›
+                </a>
+            </li>
+
+        </ul>
+    </nav>
+
+    <!-- ── Delete Confirmation Modal ── -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-semibold">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Delete Product
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-1">Are you sure you want to delete:</p>
+                    <p class="fw-semibold text-danger mb-1" id="deleteProdName">—</p>
+                    <p class="text-muted small mb-0">This will also delete all associated images. This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="deleteForm" method="post" class="m-0">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash3 me-1"></i>Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts">
+<script th:inline="javascript">
+    const deleteModal = document.getElementById('deleteModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const btn  = event.relatedTarget;
+        const base = /*[[@{/admin/products}]]*/ '/admin/products';
+        document.getElementById('deleteProdName').textContent = btn.getAttribute('data-prod-name');
+        document.getElementById('deleteForm').action = base + '/' + btn.getAttribute('data-prod-id') + '/delete';
+    });
+</script>
+</th:block>
+
+</body>
+</html>

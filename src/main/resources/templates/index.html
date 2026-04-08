@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title>Card Showcase — Premium Trading Card Products</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 1 — Coverflow Hero Carousel (DARK)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-coverflow-section cs-section-dark" aria-label="Featured banners">
+
+    <!-- Has slides -->
+    <th:block th:if="${not #lists.isEmpty(carouselSlides)}">
+
+      <div class="cs-coverflow-wrap" id="csCoverflowWrap">
+        <div class="cs-cf-slide"
+             th:each="slide, stat : ${carouselSlides}"
+             th:classappend="${stat.first} ? ' cs-cf-active' : ' cs-cf-hidden'"
+             th:attr="data-link=${slide.linkUrl()}">
+          <!-- Blurred backdrop — same image scaled up and blurred to fill empty space -->
+          <div class="cs-cf-bg"
+               th:style="'background-image:url(\'' + ${slide.imageUrl()} + '\');'"></div>
+          <!-- Sharp image on top — full picture, no cropping -->
+          <img th:src="${slide.imageUrl()}"
+               th:alt="${slide.title() ?: 'Slide'}"
+               class="cs-cf-img"
+               loading="eager">
+          <div class="cs-cf-overlay">
+            <h1 class="cs-cf-title"
+                th:if="${slide.title() != null and !#strings.isEmpty(slide.title())}"
+                th:text="${slide.title()}">Title</h1>
+            <a th:if="${slide.linkUrl() != null and !#strings.isEmpty(slide.linkUrl())}"
+               th:href="${slide.linkUrl()}"
+               class="cs-btn-pill cs-btn-pill-blue"
+               onclick="event.stopPropagation()">Shop Now</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prev / Next arrows (only when >1 slide) -->
+      <th:block th:if="${#lists.size(carouselSlides) > 1}">
+        <button class="cs-cf-arrow cs-cf-arrow-prev" id="csCfPrev" aria-label="Previous slide">
+          <svg viewBox="0 0 14 14" aria-hidden="true">
+            <path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" fill="none"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="cs-cf-arrow cs-cf-arrow-next" id="csCfNext" aria-label="Next slide">
+          <svg viewBox="0 0 14 14" aria-hidden="true">
+            <path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" fill="none"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- Dots -->
+        <div class="cs-cf-dots" role="tablist" aria-label="Slide indicators">
+          <button th:each="slide, stat : ${carouselSlides}"
+                  class="cs-cf-dot"
+                  th:classappend="${stat.first} ? ' cs-cf-dot-active'"
+                  th:attr="aria-label=${'Slide ' + stat.count}"
+                  role="tab"
+                  th:aria-selected="${stat.first}"></button>
+        </div>
+      </th:block>
+
+    </th:block>
+
+    <!-- No slides — empty state -->
+    <div th:unless="${not #lists.isEmpty(carouselSlides)}" class="cs-cf-empty">
+      <h1 class="cs-headline-lg" style="color:#fff;">Welcome to Card Showcase</h1>
+      <a th:href="@{/products}" class="cs-btn-pill cs-btn-pill-blue">Browse Products</a>
+    </div>
+
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       TRUST BAR
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-trust-bar cs-section-light">
+    <div class="cs-container">
+      <div class="cs-trust-items">
+        <div class="cs-trust-item">
+          <i class="bi bi-box-seam cs-trust-icon"></i>
+          <span class="cs-trust-text">Wholesale Pricing</span>
+        </div>
+        <div class="cs-trust-item">
+          <i class="bi bi-truck cs-trust-icon"></i>
+          <span class="cs-trust-text">Fast Shipping</span>
+        </div>
+        <div class="cs-trust-item">
+          <i class="bi bi-shield-check cs-trust-icon"></i>
+          <span class="cs-trust-text">Authentic &amp; Sealed</span>
+        </div>
+        <div class="cs-trust-item">
+          <i class="bi bi-chat-left-text cs-trust-icon"></i>
+          <span class="cs-trust-text">Quick Quotes</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 2 — Quick Category Buttons (LIGHT)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-light cs-section" style="padding:40px 0;">
+    <div class="cs-container">
+      <div class="cs-quick-cats">
+        <a href="#best-sellers"
+           class="cs-btn-pill cs-btn-pill-dark cs-quick-cat-btn"><i class="bi bi-star cs-btn-icon"></i>Best Sellers</a>
+        <a href="#new-releases"
+           class="cs-btn-pill cs-btn-pill-dark cs-quick-cat-btn"><i class="bi bi-lightning cs-btn-icon"></i>New Releases</a>
+        <a href="#deals"
+           class="cs-btn-pill cs-btn-pill-dark cs-quick-cat-btn"><i class="bi bi-tag cs-btn-icon"></i>Deals</a>
+        <a href="#trending"
+           class="cs-btn-pill cs-btn-pill-dark cs-quick-cat-btn"><i class="bi bi-graph-up cs-btn-icon"></i>Trending</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 3 — Trending Products (DARK)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-dark cs-section cs-fade-section" id="trending"
+           th:if="${not #lists.isEmpty(trendingProducts)}">
+    <div class="cs-container">
+      <div class="cs-section-header cs-section-header-row">
+        <div>
+          <h2 class="cs-headline-lg cs-section-title-dark">Trending</h2>
+          <div class="cs-section-accent-line"></div>
+          <p class="cs-section-subtitle-dark">Most popular picks right now</p>
+        </div>
+        <a th:href="@{/products(filter='trending')}"
+           class="cs-section-viewall cs-section-viewall-dark">View All →</a>
+      </div>
+      <div class="cs-carousel-wrap">
+        <button class="cs-carousel-arrow cs-carousel-arrow-prev" aria-label="Previous">&#8249;</button>
+        <div class="cs-product-carousel">
+          <div th:each="p : ${trendingProducts}" class="cs-carousel-item">
+            <div th:replace="~{fragments/product-card :: productCard(${p}, 'dark', ${primaryImages[p.id]})}"></div>
+          </div>
+          <a th:if="${#lists.size(trendingProducts) >= 5}"
+             th:href="@{/products(filter='trending')}"
+             class="cs-carousel-item cs-carousel-viewall cs-carousel-viewall-dark">
+            <span>View All<br>Trending →</span>
+          </a>
+        </div>
+        <button class="cs-carousel-arrow cs-carousel-arrow-next" aria-label="Next">&#8250;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 4 — New Releases (LIGHT)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-light cs-section cs-fade-section" id="new-releases"
+           th:if="${not #lists.isEmpty(newProducts)}">
+    <div class="cs-container">
+      <div class="cs-section-header cs-section-header-row">
+        <div>
+          <h2 class="cs-headline-lg cs-section-title-light">New Releases</h2>
+          <div class="cs-section-accent-line"></div>
+          <p class="cs-section-subtitle-light">Fresh arrivals just added</p>
+        </div>
+        <a th:href="@{/products(filter='new')}"
+           class="cs-section-viewall cs-section-viewall-light">View All →</a>
+      </div>
+      <div class="cs-carousel-wrap">
+        <button class="cs-carousel-arrow cs-carousel-arrow-prev" aria-label="Previous">&#8249;</button>
+        <div class="cs-product-carousel">
+          <div th:each="p : ${newProducts}" class="cs-carousel-item">
+            <div th:replace="~{fragments/product-card :: productCard(${p}, 'light', ${primaryImages[p.id]})}"></div>
+          </div>
+          <a th:if="${#lists.size(newProducts) >= 5}"
+             th:href="@{/products(filter='new')}"
+             class="cs-carousel-item cs-carousel-viewall cs-carousel-viewall-light">
+            <span>View All<br>New Releases →</span>
+          </a>
+        </div>
+        <button class="cs-carousel-arrow cs-carousel-arrow-next" aria-label="Next">&#8250;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 5 — Best Sellers (DARK)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-dark cs-section cs-fade-section" id="best-sellers"
+           th:if="${not #lists.isEmpty(bestSellerProducts)}">
+    <div class="cs-container">
+      <div class="cs-section-header cs-section-header-row">
+        <div>
+          <h2 class="cs-headline-lg cs-section-title-dark">Best Sellers</h2>
+          <div class="cs-section-accent-line"></div>
+          <p class="cs-section-subtitle-dark">Our top-selling products</p>
+        </div>
+        <a th:href="@{/products(filter='best-sellers')}"
+           class="cs-section-viewall cs-section-viewall-dark">View All →</a>
+      </div>
+      <div class="cs-carousel-wrap">
+        <button class="cs-carousel-arrow cs-carousel-arrow-prev" aria-label="Previous">&#8249;</button>
+        <div class="cs-product-carousel">
+          <div th:each="p : ${bestSellerProducts}" class="cs-carousel-item">
+            <div th:replace="~{fragments/product-card :: productCard(${p}, 'dark', ${primaryImages[p.id]})}"></div>
+          </div>
+          <a th:if="${#lists.size(bestSellerProducts) >= 5}"
+             th:href="@{/products(filter='best-sellers')}"
+             class="cs-carousel-item cs-carousel-viewall cs-carousel-viewall-dark">
+            <span>View All<br>Best Sellers →</span>
+          </a>
+        </div>
+        <button class="cs-carousel-arrow cs-carousel-arrow-next" aria-label="Next">&#8250;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 6 — Deals & Specials (LIGHT)
+       ════════════════════════════════════════════════════════════ -->
+  <section class="cs-section-light cs-section cs-fade-section" id="deals"
+           th:if="${not #lists.isEmpty(saleProducts)}">
+    <div class="cs-container">
+      <div class="cs-section-header cs-section-header-row">
+        <div>
+          <h2 class="cs-headline-lg cs-section-title-light">Deals &amp; Specials</h2>
+          <div class="cs-section-accent-line"></div>
+          <p class="cs-section-subtitle-light">Limited-time offers and discounts</p>
+        </div>
+        <a th:href="@{/products(filter='sale')}"
+           class="cs-section-viewall cs-section-viewall-light">View All →</a>
+      </div>
+      <div class="cs-carousel-wrap">
+        <button class="cs-carousel-arrow cs-carousel-arrow-prev" aria-label="Previous">&#8249;</button>
+        <div class="cs-product-carousel">
+          <div th:each="p : ${saleProducts}" class="cs-carousel-item">
+            <div th:replace="~{fragments/product-card :: productCard(${p}, 'light', ${primaryImages[p.id]})}"></div>
+          </div>
+          <a th:if="${#lists.size(saleProducts) >= 5}"
+             th:href="@{/products(filter='sale')}"
+             class="cs-carousel-item cs-carousel-viewall cs-carousel-viewall-light">
+            <span>View All<br>Deals &amp; Specials →</span>
+          </a>
+        </div>
+        <button class="cs-carousel-arrow cs-carousel-arrow-next" aria-label="Next">&#8250;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── No products at all — welcome state ── -->
+  <section class="cs-section-dark cs-section"
+           th:if="${#lists.isEmpty(trendingProducts) and #lists.isEmpty(newProducts)
+                   and #lists.isEmpty(bestSellerProducts) and #lists.isEmpty(saleProducts)}">
+    <div class="cs-container" style="text-align:center; padding:80px 0;">
+      <h2 class="cs-headline-lg" style="color:#fff;">Catalog Coming Soon</h2>
+      <p class="cs-section-subtitle-dark">Our product catalog is being built. Check back soon.</p>
+      <a th:href="@{/inquiry}" class="cs-btn-pill cs-btn-pill-blue" style="margin-top:20px;">Request a Quote</a>
+    </div>
+  </section>
+
+</div>
+
+<th:block layout:fragment="scripts">
+<!-- coverflow.js handles the hero carousel; loaded globally via main.html -->
+</th:block>
+
+</body>
+</html>

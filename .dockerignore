@@ -1,0 +1,11 @@
+target/
+.git/
+.gitignore
+*.md
+.env
+uploads/
+.idea/
+*.iml
+nginx/
+deploy.sh
+reset-password.sh

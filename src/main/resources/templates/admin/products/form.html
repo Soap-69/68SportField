@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head>
+    <title th:text="${editMode} ? 'Edit Product' : 'Add Product'">Product Form</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a th:href="@{/admin/products}" class="text-decoration-none">Products</a>
+            </li>
+            <li class="breadcrumb-item active" th:text="${editMode} ? 'Edit' : 'Add'">Form</li>
+        </ol>
+    </nav>
+
+    <div class="mb-4">
+        <h2 class="h4 fw-bold mb-0" th:text="${editMode} ? 'Edit Product' : 'Add Product'">Product Form</h2>
+    </div>
+
+    <form th:action="${form.id != null} ? @{/admin/products/{id}/edit(id=${form.id})} : @{/admin/products/create}"
+          th:object="${form}"
+          method="post"
+          enctype="multipart/form-data"
+          novalidate>
+
+        <div class="row g-4">
+
+            <!-- ════ LEFT COLUMN ════ -->
+            <div class="col-xl-8">
+
+                <!-- ── Section 1: Basic Info ── -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent fw-semibold py-3">
+                        <i class="bi bi-info-circle me-2 text-primary"></i>Basic Info
+                    </div>
+                    <div class="card-body p-4">
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="name" class="form-label fw-medium">
+                                    Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="name" th:field="*{name}"
+                                       th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                                       class="form-control" maxlength="300"
+                                       placeholder="e.g. 2024-25 Panini Prizm Basketball Hobby Box">
+                                <div class="invalid-feedback" th:errors="*{name}"></div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="slug" class="form-label fw-medium">
+                                    Slug <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text text-muted">/</span>
+                                    <input type="text" id="slug" th:field="*{slug}"
+                                           th:classappend="${#fields.hasErrors('slug')} ? 'is-invalid' : ''"
+                                           class="form-control font-monospace" maxlength="350">
+                                    <div class="invalid-feedback" th:errors="*{slug}"></div>
+                                </div>
+                                <div class="form-text">Auto-generated from name. Must be unique.</div>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label for="brand" class="form-label fw-medium">Brand</label>
+                                <input type="text" id="brand" th:field="*{brand}"
+                                       class="form-control" maxlength="100"
+                                       placeholder="e.g. Panini, Topps, PSA">
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label for="configuration" class="form-label fw-medium">Configuration</label>
+                                <input type="text" id="configuration" th:field="*{configuration}"
+                                       class="form-control" maxlength="500"
+                                       placeholder="12 boxes per case. 20 packs per box.">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Section 2: Category ── -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent fw-semibold py-3">
+                        <i class="bi bi-folder2-open me-2 text-success"></i>Category
+                        <span class="text-danger ms-1">*</span>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+
+                            <div class="col-sm-4">
+                                <label for="l1Select" class="form-label fw-medium">Sport / Genre</label>
+                                <select id="l1Select" class="form-select">
+                                    <option value="">— Select —</option>
+                                    <option th:each="opt : ${l1Categories}"
+                                            th:value="${opt.id}"
+                                            th:text="${opt.name}"
+                                            th:selected="${selectedL1 != null and selectedL1 == opt.id}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="col-sm-4">
+                                <label for="l2Select" class="form-label fw-medium">Sub-category</label>
+                                <select id="l2Select" class="form-select" disabled>
+                                    <option value="">— Select L1 first —</option>
+                                    <option th:each="opt : ${l2Categories}"
+                                            th:value="${opt.id}"
+                                            th:text="${opt.name}"
+                                            th:selected="${selectedL2 != null and selectedL2 == opt.id}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="col-sm-4">
+                                <label for="l3Select" class="form-label fw-medium">Season / Year</label>
+                                <!--
+                                    name="categoryId" binds to ProductDTO.categoryId.
+                                    Options are populated server-side (edit) and via AJAX (user change).
+                                -->
+                                <select id="l3Select" name="categoryId" class="form-select"
+                                        th:classappend="${#fields.hasErrors('categoryId')} ? 'is-invalid' : ''"
+                                        disabled>
+                                    <option value="">— Select L2 first —</option>
+                                    <option th:each="opt : ${l3Categories}"
+                                            th:value="${opt.id}"
+                                            th:text="${opt.name}"
+                                            th:selected="${form.categoryId != null and form.categoryId == opt.id}">
+                                    </option>
+                                </select>
+                                <div class="invalid-feedback" th:errors="*{categoryId}"></div>
+                            </div>
+
+                        </div>
+                        <div class="form-text mt-2">
+                            Select all three levels. The Season / Year level is saved as the product category.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Section 3: Pricing ── -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent fw-semibold py-3">
+                        <i class="bi bi-tag me-2 text-warning"></i>Pricing
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label for="price" class="form-label fw-medium">Wholesale Price</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="price" th:field="*{price}"
+                                           class="form-control" step="0.01" min="0"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="originalPrice" class="form-label fw-medium">
+                                    Original / MSRP Price
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="originalPrice" th:field="*{originalPrice}"
+                                           class="form-control" step="0.01" min="0"
+                                           placeholder="Leave blank if not on sale">
+                                </div>
+                                <div class="form-text">Shown as strikethrough when "On Sale" flag is active.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Section 4: Descriptions ── -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent fw-semibold py-3">
+                        <i class="bi bi-file-text me-2 text-info"></i>Descriptions
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-medium">Description</label>
+                            <textarea id="description" th:field="*{description}"
+                                      class="form-control" rows="6"
+                                      placeholder="Full product description…"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="highlights" class="form-label fw-medium">Product Highlights</label>
+                            <textarea id="highlights" th:field="*{highlights}"
+                                      class="form-control" rows="4"
+                                      placeholder="One highlight per line…"></textarea>
+                            <div class="form-text">Displayed as a bullet-point list on the product page.</div>
+                        </div>
+                        <div>
+                            <label for="boxBreakInfo" class="form-label fw-medium">Box Break Info</label>
+                            <textarea id="boxBreakInfo" th:field="*{boxBreakInfo}"
+                                      class="form-control" rows="4"
+                                      placeholder="Details about what's inside each box or case…"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end LEFT COLUMN -->
+
+            <!-- ════ RIGHT COLUMN ════ -->
+            <div class="col-xl-4">
+
+                <!-- ── Section 5: Images ── -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent fw-semibold py-3">
+                        <i class="bi bi-images me-2 text-purple"></i>Images
+                    </div>
+                    <div class="card-body p-4">
+
+                        <!-- Existing images (edit mode only) -->
+                        <div th:if="${editMode and product != null and not #lists.isEmpty(product.images)}"
+                             class="mb-4">
+                            <p class="small fw-medium mb-2">Current images
+                                <span class="text-muted">(★ = primary, ✕ = mark for deletion)</span>
+                            </p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <div th:each="img : ${product.images}"
+                                     class="border rounded p-1 text-center position-relative"
+                                     style="width:90px;">
+
+                                    <img th:src="${img.imageUrl}"
+                                         class="rounded mb-1"
+                                         style="width:76px;height:76px;object-fit:cover;"
+                                         alt="product image">
+
+                                    <!-- Set as primary -->
+                                    <form th:action="@{/admin/products/{id}/set-primary-image(id=${product.id})}"
+                                          method="post" class="m-0">
+                                        <input type="hidden" name="imageId" th:value="${img.id}">
+                                        <button type="submit"
+                                                th:class="${img.isPrimary} ? 'btn btn-warning border-0 p-0 w-100' : 'btn btn-outline-secondary border-0 p-0 w-100'"
+                                                style="font-size:.75rem;"
+                                                th:title="${img.isPrimary} ? 'Primary image' : 'Set as primary'">
+                                            <i th:class="${img.isPrimary} ? 'bi bi-star-fill text-warning' : 'bi bi-star'"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- Delete checkbox -->
+                                    <div class="mt-1 d-flex align-items-center justify-content-center gap-1">
+                                        <input type="checkbox"
+                                               name="deleteImageIds"
+                                               th:value="${img.id}"
+                                               class="form-check-input m-0"
+                                               id="${'del-' + img.id}">
+                                        <label class="small text-danger m-0"
+                                               th:for="${'del-' + img.id}"
+                                               style="cursor:pointer;">Delete</label>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- New image upload -->
+                        <div>
+                            <label for="imageFiles" class="form-label fw-medium small">
+                                <span th:text="${editMode} ? 'Upload Additional Images' : 'Upload Images'"></span>
+                            </label>
+                            <input type="file"
+                                   id="imageFiles"
+                                   name="imageFiles"
+                                   class="form-control form-control-sm"
+                                   accept="image/jpeg,image/png,image/webp"
+                                   multiple>
+                            <div class="form-text">JPG, PNG, WEBP only. Max 5 MB each.
+                                The first new image will be set as primary if none exists.</div>
+                        </div>
+
+                        <!-- JS preview of newly selected files -->
+                        <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-3"></div>
+
+                    </div>
+                </div>
+
+                <!-- ── Section 6: Flags & Status ── -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent fw-semibold py-3">
+                        <i class="bi bi-tags me-2 text-secondary"></i>Flags &amp; Status
+                    </div>
+                    <div class="card-body p-4">
+
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="hidden" name="_isOnSale" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isOnSale"
+                                           th:field="*{isOnSale}">
+                                    <label class="form-check-label small" for="isOnSale">
+                                        <span class="badge bg-danger me-1">Sale</span>On Sale
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="hidden" name="_isNew" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isNew"
+                                           th:field="*{isNew}">
+                                    <label class="form-check-label small" for="isNew">
+                                        <span class="badge bg-success me-1">New</span>New Release
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="hidden" name="_isTrending" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isTrending"
+                                           th:field="*{isTrending}">
+                                    <label class="form-check-label small" for="isTrending">
+                                        <span class="badge bg-warning text-dark me-1">Hot</span>Trending
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="hidden" name="_isBestSeller" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isBestSeller"
+                                           th:field="*{isBestSeller}">
+                                    <label class="form-check-label small" for="isBestSeller">
+                                        <span class="badge bg-primary me-1">⭐</span>Best Seller
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="hidden" name="_isPreOrder" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isPreOrder"
+                                           th:field="*{isPreOrder}">
+                                    <label class="form-check-label small" for="isPreOrder">
+                                        <span class="badge bg-info text-white me-1">Pre</span>Pre-Order
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="hidden" name="_isFeatured" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isFeatured"
+                                           th:field="*{isFeatured}">
+                                    <label class="form-check-label small" for="isFeatured">
+                                        <span class="badge bg-dark me-1">&#9733;</span>Featured
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="form-check form-switch">
+                                    <input type="hidden" name="_isActive" value="on">
+                                    <input type="checkbox" class="form-check-input" id="isActive"
+                                           role="switch" th:field="*{isActive}">
+                                    <label class="form-check-label fw-medium small" for="isActive">Active</label>
+                                </div>
+                                <div class="form-text" style="font-size:.7rem;">
+                                    Inactive products are hidden from the public catalog.
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label for="sortOrder" class="form-label fw-medium small">Sort Order</label>
+                                <input type="number" id="sortOrder" th:field="*{sortOrder}"
+                                       class="form-control form-control-sm" min="0" step="1">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ── Submit buttons ── -->
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i th:class="${editMode} ? 'bi bi-check-lg me-1' : 'bi bi-plus-circle me-1'"></i>
+                        <span th:text="${editMode} ? 'Update Product' : 'Create Product'">Save</span>
+                    </button>
+                    <a th:href="@{/admin/products}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+
+            </div><!-- end RIGHT COLUMN -->
+
+        </div><!-- end row -->
+    </form>
+
+</div>
+
+<th:block layout:fragment="scripts">
+<script th:inline="javascript">
+(function () {
+
+    // ── Slug auto-generation ──────────────────────────────────────────────────
+    const nameInput = document.getElementById('name');
+    const slugInput = document.getElementById('slug');
+    let   slugDirty = /*[[${editMode}]]*/ false;
+
+    slugInput.addEventListener('input', () => { slugDirty = true; });
+    nameInput.addEventListener('input', function () {
+        if (slugDirty) return;
+        slugInput.value = this.value
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s-]/g, '')
+            .trim()
+            .replace(/[\s]+/g, '-')
+            .replace(/-+/g, '-');
+    });
+
+    // ── Image file preview ────────────────────────────────────────────────────
+    document.getElementById('imageFiles').addEventListener('change', function () {
+        const preview = document.getElementById('imagePreview');
+        preview.innerHTML = '';
+        Array.from(this.files).forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'position-relative';
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.className = 'rounded border';
+                img.style.cssText = 'width:72px;height:72px;object-fit:cover;';
+                wrapper.appendChild(img);
+                preview.appendChild(wrapper);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    // ── Cascading category dropdowns ──────────────────────────────────────────
+    const l1Select  = document.getElementById('l1Select');
+    const l2Select  = document.getElementById('l2Select');
+    const l3Select  = document.getElementById('l3Select');
+    const apiBase   = /*[[@{/admin/api/categories/children}]]*/ '/admin/api/categories/children';
+
+    async function fetchChildren(parentId, targetSelect, selectedId) {
+        if (!parentId) {
+            targetSelect.innerHTML = '<option value="">— Select —</option>';
+            targetSelect.disabled = true;
+            return;
+        }
+        targetSelect.innerHTML = '<option value="">Loading…</option>';
+        targetSelect.disabled = true;
+        try {
+            const res      = await fetch(apiBase + '?parentId=' + parentId);
+            const children = await res.json();
+            targetSelect.innerHTML = '<option value="">— Select —</option>';
+            children.forEach(c => {
+                const opt = new Option(c.name, c.id);
+                if (selectedId && Number(c.id) === Number(selectedId)) opt.selected = true;
+                targetSelect.appendChild(opt);
+            });
+            targetSelect.disabled = (children.length === 0);
+        } catch (err) {
+            targetSelect.innerHTML = '<option value="">Error loading</option>';
+            console.error('Category fetch error:', err);
+        }
+    }
+
+    l1Select.addEventListener('change', function () {
+        fetchChildren(this.value, l2Select, null);
+        l3Select.innerHTML = '<option value="">— Select L2 first —</option>';
+        l3Select.disabled = true;
+    });
+
+    l2Select.addEventListener('change', function () {
+        fetchChildren(this.value, l3Select, null);
+    });
+
+    // Initialise cascade from server-supplied selected values (edit mode)
+    const initL1 = /*[[${selectedL1 ?: 0}]]*/ 0;
+    const initL2 = /*[[${selectedL2 ?: 0}]]*/ 0;
+    const initL3 = /*[[${form.categoryId ?: 0}]]*/ 0;
+
+    (async function init() {
+        if (!initL1) {
+            l2Select.disabled = true;
+            l3Select.disabled = true;
+            return;
+        }
+        // Restore L1 selection
+        l1Select.value = initL1;
+
+        if (initL2) {
+            // Fetch and restore L2
+            await fetchChildren(initL1, l2Select, initL2);
+            // Fetch and restore L3
+            if (initL3) {
+                await fetchChildren(initL2, l3Select, initL3);
+            }
+        } else {
+            // L1 selected but no L2 yet — just enable L2 dropdown
+            await fetchChildren(initL1, l2Select, null);
+        }
+    })();
+
+}());
+</script>
+</th:block>
+
+</body>
+</html>

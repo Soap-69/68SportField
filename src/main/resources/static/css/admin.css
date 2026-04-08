@@ -1,0 +1,316 @@
+/* ============================================================
+   Card Showcase — Admin Panel Styles
+   Loaded only by templates/admin/layout.html.
+   No dependency on design-system.css or public.css.
+   ============================================================ */
+
+/* ── Reset / base ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background-color: #f1f3f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: .9rem;
+    color: #212529;
+}
+
+/* ── Outer wrapper ───────────────────────────────────────────── */
+.cs-admin-wrap {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SIDEBAR — dark, 240px, collapses on desktop / overlay on mobile
+   ════════════════════════════════════════════════════════════════ */
+.cs-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    overflow: hidden;                     /* clips inner when width → 0 */
+    transition: width .25s cubic-bezier(.4, 0, .2, 1);
+    background: #1e2433;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 1030;
+}
+
+/* Inner container — fixed 240px so content doesn't squish during animation */
+.cs-sidebar-inner {
+    width: 240px;
+    min-width: 240px;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem .875rem;
+}
+
+/* Desktop collapsed state */
+.sidebar-collapsed .cs-sidebar {
+    width: 0;
+}
+
+/* Nav links */
+.cs-sidebar .nav-link {
+    color: rgba(255, 255, 255, .6);
+    border-radius: 6px;
+    padding: .45rem .75rem;
+    font-size: .875rem;
+    transition: background-color .15s ease, color .15s ease;
+    white-space: nowrap;
+}
+.cs-sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, .08);
+}
+.cs-sidebar .nav-link.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, .15);
+    font-weight: 600;
+}
+.cs-sidebar .nav-link .bi {
+    width: 1.25rem;
+    text-align: center;
+}
+
+/* Brand */
+.cs-brand {
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: .01rem;
+    white-space: nowrap;
+}
+
+/* Section label */
+.cs-section-label {
+    font-size: .65rem;
+    font-weight: 600;
+    letter-spacing: .07rem;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .3);
+    padding: .5rem .75rem .25rem;
+    white-space: nowrap;
+}
+
+/* Mobile backdrop */
+.cs-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    z-index: 1029;
+}
+.sidebar-mobile-open .cs-sidebar-backdrop {
+    display: block;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MAIN CONTENT AREA — light theme
+   ════════════════════════════════════════════════════════════════ */
+.cs-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f1f3f5;
+}
+
+/* Top bar */
+.cs-topbar {
+    display: flex;
+    align-items: center;
+    height: 57px;
+    padding: 0 1.5rem;
+    background: #ffffff;
+    border-bottom: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    flex-shrink: 0;
+}
+
+/* Hamburger toggle button */
+.cs-sidebar-toggle {
+    background: none;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    padding: .25rem .5rem;
+    cursor: pointer;
+    color: #495057;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+.cs-sidebar-toggle:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    color: #212529;
+}
+
+/* Main content padding area */
+.cs-main {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-x: hidden;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CARDS — white with light shadow
+   ════════════════════════════════════════════════════════════════ */
+.card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: .5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+
+.card-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    font-size: .875rem;
+    color: #343a40;
+    padding: .875rem 1.25rem;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+/* Prevent horizontal overflow on small screens */
+@media (max-width: 991.98px) {
+    .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TABLES — standard Bootstrap light style
+   ════════════════════════════════════════════════════════════════ */
+.table {
+    color: #212529;
+    background: #ffffff;
+}
+
+.table thead th {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6c757d;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+
+.table tbody td {
+    vertical-align: middle;
+    font-size: .875rem;
+    border-bottom: 1px solid #f1f3f5;
+    color: #343a40;
+}
+
+.table-hover tbody tr:hover td {
+    background: #f8f9fa;
+}
+
+@media (max-width: 991.98px) {
+    .table { min-width: 560px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FORMS
+   ════════════════════════════════════════════════════════════════ */
+.form-label {
+    font-weight: 500;
+    font-size: .875rem;
+    color: #495057;
+}
+
+.form-control,
+.form-select {
+    background-color: #ffffff;
+    border-color: #ced4da;
+    color: #212529;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .15);
+    background-color: #ffffff;
+    color: #212529;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STAT CARDS (dashboard)
+   ════════════════════════════════════════════════════════════════ */
+.cs-stat-card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: .5rem;
+    border-left: 4px solid;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+.cs-stat-card-primary { border-left-color: #0d6efd; }
+.cs-stat-card-success  { border-left-color: #198754; }
+.cs-stat-card-warning  { border-left-color: #ffc107; }
+.cs-stat-card-info     { border-left-color: #0dcaf0; }
+.cs-stat-card-danger   { border-left-color: #dc3545; }
+
+/* ════════════════════════════════════════════════════════════════
+   BADGES
+   ════════════════════════════════════════════════════════════════ */
+.badge { font-weight: 500; }
+
+/* ════════════════════════════════════════════════════════════════
+   ALERT STRIP
+   ════════════════════════════════════════════════════════════════ */
+.cs-alert-strip {
+    border-radius: .375rem;
+    padding: .625rem 1rem;
+    font-size: .875rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE (<992px) — sidebar becomes overlay
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 991.98px) {
+    .cs-admin-wrap {
+        display: block;                   /* content takes full width */
+    }
+
+    .cs-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 240px !important;          /* always 240px on mobile */
+        transform: translateX(-100%);
+        transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+        z-index: 1040;
+    }
+
+    /* Desktop collapsed class has no effect on mobile layout */
+    .sidebar-collapsed .cs-sidebar {
+        width: 240px !important;
+        transform: translateX(-100%);
+    }
+
+    /* Open via sidebar-mobile-open */
+    .sidebar-mobile-open .cs-sidebar {
+        transform: translateX(0) !important;
+    }
+
+    .cs-content {
+        width: 100%;
+    }
+
+    .cs-main {
+        padding: 1rem;
+    }
+}

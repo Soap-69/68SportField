@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!--
+  Fragment: breadcrumbBar(breadcrumbs)
+    breadcrumbs — List<BreadcrumbItem>
+    Last item (url == null) rendered as plain text (current page).
+-->
+<div th:fragment="breadcrumbBar(breadcrumbs)" class="cs-breadcrumb-bar">
+  <div class="cs-container">
+    <ol class="cs-breadcrumb-list" aria-label="Breadcrumb">
+      <li th:each="crumb, stat : ${breadcrumbs}" class="cs-breadcrumb-item">
+
+        <!-- Separator (skip on first item) -->
+        <span th:if="${!stat.first}" class="cs-breadcrumb-sep" aria-hidden="true">›</span>
+
+        <!-- Link or current page text -->
+        <a th:if="${crumb.url() != null}"
+           th:href="${crumb.url()}"
+           th:text="${crumb.label()}"
+           class="cs-breadcrumb-link">Home</a>
+
+        <span th:if="${crumb.url() == null}"
+              th:text="${crumb.label()}"
+              class="cs-breadcrumb-current"
+              aria-current="page">Current</span>
+
+      </li>
+    </ol>
+  </div>
+</div>
+
+</body>
+</html>

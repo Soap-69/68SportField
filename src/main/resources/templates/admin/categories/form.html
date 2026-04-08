@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head>
+    <title th:text="${editMode} ? 'Edit Category' : 'Add Category'">Category Form</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a th:href="@{/admin/categories}" class="text-decoration-none">Categories</a>
+            </li>
+            <li class="breadcrumb-item active"
+                th:text="${editMode} ? 'Edit' : 'Add'">Form</li>
+        </ol>
+    </nav>
+
+    <!-- Page header -->
+    <div class="mb-4">
+        <h2 class="h4 fw-bold mb-0"
+            th:text="${editMode} ? 'Edit Category' : 'Add Category'">Category Form</h2>
+        <p class="text-muted small mb-0"
+           th:text="${editMode} ? 'Update the category details below.' : 'Fill in the details to create a new category.'"></p>
+    </div>
+
+    <!-- Form card -->
+    <div class="card border-0 shadow-sm" style="max-width: 720px;">
+        <div class="card-body p-4">
+
+            <form th:action="${form.id != null} ? @{/admin/categories/{id}/edit(id=${form.id})} : @{/admin/categories/create}"
+                  th:object="${form}"
+                  method="post"
+                  novalidate>
+
+                <!-- ── Parent Category ── -->
+                <div class="mb-4">
+                    <label for="parentId" class="form-label fw-medium">Parent Category</label>
+                    <select id="parentId"
+                            th:field="*{parentId}"
+                            class="form-select">
+                        <option value="">— None (creates an L1 root category) —</option>
+                        <option th:each="opt : ${parentOptions}"
+                                th:value="${opt.id}"
+                                th:text="${opt.level == 1 ? opt.name : ('↳ ' + opt.name)}"
+                                th:attr="data-slug=${opt.slug}, data-level=${opt.level}">
+                        </option>
+                    </select>
+                    <div class="form-text">
+                        Select a parent to create an L2 (under L1) or L3 (under L2) category.
+                        Leave blank to create a top-level L1 category. L3 categories cannot be parents.
+                    </div>
+                </div>
+
+                <!-- ── Name ── -->
+                <div class="mb-3">
+                    <label for="name" class="form-label fw-medium">
+                        Name <span class="text-danger">*</span>
+                    </label>
+                    <input type="text"
+                           id="name"
+                           th:field="*{name}"
+                           th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                           class="form-control"
+                           placeholder="e.g. Basketball"
+                           maxlength="100">
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}"
+                         th:errors="*{name}"></div>
+                </div>
+
+                <!-- ── Slug ── -->
+                <div class="mb-3">
+                    <label for="slug" class="form-label fw-medium">
+                        Slug <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text text-muted">/</span>
+                        <input type="text"
+                               id="slug"
+                               th:field="*{slug}"
+                               th:classappend="${#fields.hasErrors('slug')} ? 'is-invalid' : ''"
+                               class="form-control font-monospace"
+                               placeholder="e.g. sports-basketball"
+                               maxlength="120">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('slug')}"
+                             th:errors="*{slug}"></div>
+                    </div>
+                    <div class="form-text">
+                        Auto-generated from the name. Must be unique across all categories.
+                        You can edit it manually.
+                    </div>
+                </div>
+
+                <!-- ── Image URL ── -->
+                <div class="mb-3">
+                    <label for="imageUrl" class="form-label fw-medium">Image URL</label>
+                    <input type="text"
+                           id="imageUrl"
+                           th:field="*{imageUrl}"
+                           th:classappend="${#fields.hasErrors('imageUrl')} ? 'is-invalid' : ''"
+                           class="form-control"
+                           placeholder="https://... or /uploads/..."
+                           maxlength="500">
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('imageUrl')}"
+                         th:errors="*{imageUrl}"></div>
+                    <div class="form-text">Optional icon or image for this category.</div>
+                </div>
+
+                <!-- ── Sort Order ── -->
+                <div class="mb-3">
+                    <label for="sortOrder" class="form-label fw-medium">Sort Order</label>
+                    <input type="number"
+                           id="sortOrder"
+                           th:field="*{sortOrder}"
+                           class="form-control"
+                           style="max-width: 160px;"
+                           min="0"
+                           step="1">
+                    <div class="form-text">Lower numbers appear first. Default is 0.</div>
+                </div>
+
+                <!-- ── Active ── -->
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               role="switch"
+                               id="isActive"
+                               th:field="*{isActive}">
+                        <label class="form-check-label fw-medium" for="isActive">Active</label>
+                    </div>
+                    <div class="form-text">Inactive categories are hidden from the public catalog.</div>
+                </div>
+
+                <!-- ── Buttons ── -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i th:class="${editMode} ? 'bi bi-check-lg me-1' : 'bi bi-plus-circle me-1'"></i>
+                        <span th:text="${editMode} ? 'Save Changes' : 'Create Category'">Save</span>
+                    </button>
+                    <a th:href="@{/admin/categories}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── Page-specific JS for slug auto-generation ── -->
+<th:block layout:fragment="scripts">
+<script th:inline="javascript">
+(function () {
+    const nameInput   = document.getElementById('name');
+    const slugInput   = document.getElementById('slug');
+    const parentSel   = document.getElementById('parentId');
+
+    // Track whether the user has manually edited the slug
+    let slugDirty = /*[[${editMode}]]*/ false;
+
+    slugInput.addEventListener('input', () => { slugDirty = true; });
+
+    function toSlug(text) {
+        return text
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+            .replace(/[^a-z0-9\s-]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+    }
+
+    function getSelectedParentSlug() {
+        const opt = parentSel.options[parentSel.selectedIndex];
+        return opt ? (opt.getAttribute('data-slug') || '') : '';
+    }
+
+    function refreshSlug() {
+        if (slugDirty) return;
+        const base       = toSlug(nameInput.value);
+        const parentSlug = getSelectedParentSlug();
+        slugInput.value  = parentSlug ? parentSlug + '-' + base : base;
+    }
+
+    nameInput.addEventListener('input', refreshSlug);
+    parentSel.addEventListener('change', refreshSlug);
+}());
+</script>
+</th:block>
+
+</body>
+</html>

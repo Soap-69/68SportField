@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head><title th:text="${pageTitle}">Banner Form</title></head>
+<body>
+<div layout:fragment="content">
+
+    <!-- ── Page header ── -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-0" th:text="${pageTitle}">Banner Form</h2>
+        </div>
+        <a th:href="@{/admin/banners}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Back to Banners
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-7">
+
+            <form th:action="${editMode} ? @{/admin/banners/{id}/edit(id=${form.id})} : @{/admin/banners/create}"
+                  th:object="${form}"
+                  method="post"
+                  enctype="multipart/form-data"
+                  novalidate>
+
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-transparent fw-semibold py-3">Banner Details</div>
+                    <div class="card-body">
+
+                        <!-- Title -->
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Title <span class="text-muted small">(optional)</span></label>
+                            <input type="text" th:field="*{title}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('title')} ? 'is-invalid'"
+                                   placeholder="e.g. Summer Sale">
+                            <div th:if="${#fields.hasErrors('title')}" class="invalid-feedback"
+                                 th:errors="*{title}"></div>
+                        </div>
+
+                        <!-- Image upload -->
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">
+                                Banner Image
+                                <span th:if="${!editMode}" class="text-danger">*</span>
+                                <span th:if="${editMode}" class="text-muted small">(leave blank to keep current)</span>
+                            </label>
+
+                            <!-- Current image (edit mode) -->
+                            <div th:if="${editMode and banner != null and banner.imageUrl != null}" class="mb-2">
+                                <img th:src="${banner.imageUrl}" alt="Current banner"
+                                     class="rounded border" style="max-width:100%;max-height:150px;object-fit:cover;">
+                            </div>
+
+                            <input type="file" name="imageFile" id="imageFile"
+                                   accept="image/jpeg,image/png,image/webp"
+                                   class="form-control"
+                                   onchange="previewImage(this)">
+                            <div class="form-text">
+                                Recommended: 1920×500px landscape image. Images will be displayed full-width and auto-scaled to fit.<br>
+                                Accepted: JPG, PNG, WEBP — Max 5 MB
+                            </div>
+
+                            <!-- Preview -->
+                            <div id="imagePreviewWrap" class="mt-2" style="display:none;">
+                                <img id="imagePreview" src="" alt="Preview"
+                                     class="rounded border" style="max-width:100%;max-height:150px;object-fit:cover;">
+                            </div>
+                        </div>
+
+                        <!-- Link URL -->
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Link URL <span class="text-muted small">(optional)</span></label>
+                            <input type="text" th:field="*{linkUrl}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('linkUrl')} ? 'is-invalid'"
+                                   placeholder="https://…">
+                            <div th:if="${#fields.hasErrors('linkUrl')}" class="invalid-feedback"
+                                 th:errors="*{linkUrl}"></div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-transparent fw-semibold py-3">Settings</div>
+                    <div class="card-body">
+
+                        <!-- Sort order -->
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Sort Order</label>
+                            <input type="number" th:field="*{sortOrder}" class="form-control" style="width:120px;" min="0">
+                            <div class="form-text">Lower numbers appear first.</div>
+                        </div>
+
+                        <!-- Active -->
+                        <div class="mb-0">
+                            <input type="hidden" name="_isActive" value="on">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="isActive"
+                                       th:field="*{isActive}" role="switch">
+                                <label class="form-check-label fw-medium" for="isActive">Active (visible on site)</label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        <span th:text="${editMode} ? 'Save Changes' : 'Create Banner'">Save</span>
+                    </button>
+                    <a th:href="@{/admin/banners}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts">
+<script>
+function previewImage(input) {
+    const wrap = document.getElementById('imagePreviewWrap');
+    const img  = document.getElementById('imagePreview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            img.src = e.target.result;
+            wrap.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+</script>
+</th:block>
+
+</body>
+</html>

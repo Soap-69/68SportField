@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/javascript,application/json
+
+app:
+  upload-dir: /app/uploads
+  notification:
+    admin-email: ${ADMIN_EMAIL:admin@cardshowcase.com}
+    enabled: ${APP_NOTIFICATION_ENABLED:false}
+
+logging:
+  level:
+    root: WARN
+    com.cardshowcase: INFO
