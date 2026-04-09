@@ -1,4 +1,4 @@
-# Card Showcase — Trading Card Product Catalog
+# 68 Sport Field — Trading Card Product Catalog
 
 B2B wholesale trading card catalog built with Spring Boot 3, Thymeleaf, and PostgreSQL.
 

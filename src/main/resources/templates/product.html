@@ -4,16 +4,16 @@
       layout:decorate="~{layout/main}"
       lang="en">
 <head>
-  <title th:text="${product.name} + ' — Card Showcase'">Product — Card Showcase</title>
+  <title th:text="${product.name} + ' — 68 Sport Field'">Product — 68 Sport Field</title>
   <!-- Meta description -->
   <meta name="description"
         th:if="${product.description != null and !#strings.isEmpty(product.description)}"
         th:content="${#strings.length(product.description) > 160 ? #strings.substring(product.description, 0, 157) + '...' : product.description}">
   <!-- Open Graph -->
   <meta property="og:type"        content="product">
-  <meta property="og:title"       th:content="${product.name} + ' — Card Showcase'">
+  <meta property="og:title"       th:content="${product.name} + ' — 68 Sport Field'">
   <meta property="og:description"
-        th:content="${product.description != null and !#strings.isEmpty(product.description)} ? (${#strings.length(product.description) > 160 ? #strings.substring(product.description, 0, 157) + '...' : product.description}) : 'Premium trading card products at Card Showcase.'">
+        th:content="${product.description != null and !#strings.isEmpty(product.description)} ? (${#strings.length(product.description) > 160 ? #strings.substring(product.description, 0, 157) + '...' : product.description}) : 'Premium trading card products at 68 Sport Field.'">
   <meta property="og:image"       th:if="${not #lists.isEmpty(images)}" th:content="${images[0].imageUrl}">
 </head>
 <body>

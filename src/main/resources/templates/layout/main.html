@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title layout:title-pattern="$CONTENT_TITLE">Card Showcase</title>
+  <title layout:title-pattern="$CONTENT_TITLE">68 Sport Field</title>
 
   <!-- Bootstrap 5 -->
   <link rel="stylesheet"
@@ -44,13 +44,13 @@
           </svg>
         </button>
         <!-- Logo — desktop only -->
-        <a th:href="@{/}" class="cs-nav-logo cs-nav-logo-desktop">CARD SHOWCASE</a>
+        <a th:href="@{/}" class="cs-nav-logo cs-nav-logo-desktop">68 Sport Field</a>
       </div>
 
       <!-- Center zone: logo (mobile) | category links (desktop) -->
       <div class="cs-nav-center">
         <!-- Logo — mobile only -->
-        <a th:href="@{/}" class="cs-nav-logo cs-nav-logo-mobile">CARD SHOWCASE</a>
+        <a th:href="@{/}" class="cs-nav-logo cs-nav-logo-mobile">68 Sport Field</a>
         <!-- Category links — desktop only -->
         <ul class="cs-nav-links" role="list" th:if="${categoryTree != null}">
           <li th:each="l1Node : ${categoryTree}">
@@ -297,7 +297,7 @@
     <div class="cs-footer-bottom">
       <span class="cs-footer-copy">
         &copy; <span th:text="${#temporals.format(#temporals.createNow(), 'yyyy')}">2024</span>
-        Card Showcase. All rights reserved.
+        68 Sport Field. All rights reserved.
       </span>
     </div>
   </div>

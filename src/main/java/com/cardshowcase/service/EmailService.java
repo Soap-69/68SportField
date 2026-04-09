@@ -120,7 +120,7 @@ public class EmailService {
 
             // Header
             "<tr><td style='background:#1d1d1f;padding:28px 32px;'>" +
-            "  <p style='margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;'>CARD SHOWCASE</p>" +
+            "  <p style='margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;'>68 Sport Field</p>" +
             "  <div style='margin-top:10px;height:3px;width:40px;background:#0071e3;border-radius:2px;'></div>" +
             "</td></tr>" +
 
@@ -192,7 +192,7 @@ public class EmailService {
             // Footer
             "<tr><td style='padding:20px 32px;background:#f5f5f7;border-top:1px solid #e8e8e8;'>" +
             "  <p style='margin:0;font-size:12px;color:#9ca3af;text-align:center;'>" +
-            "    This is an automated notification from the Card Showcase admin panel." +
+            "    This is an automated notification from the 68 Sport Field admin panel." +
             "  </p>" +
             "</td></tr>" +
 
