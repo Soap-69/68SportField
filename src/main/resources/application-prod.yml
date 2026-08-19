@@ -32,7 +32,7 @@ server:
 app:
   upload-dir: /app/uploads
   notification:
-    admin-email: ${ADMIN_EMAIL:admin@cardshowcase.com}
+    admin-email: ${ADMIN_EMAIL:}
     enabled: ${APP_NOTIFICATION_ENABLED:false}
 
 logging:

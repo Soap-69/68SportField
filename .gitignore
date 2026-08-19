@@ -34,4 +34,10 @@ build/
 
 ### Project-specific ###
 .env
+.env.local
+application-local.yml
+application-dev.yml
 uploads/
+test-uploads/
+*.log
+logs/

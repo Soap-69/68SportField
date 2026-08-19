@@ -33,7 +33,7 @@ public class AdminUser {
     @Size(max = 20)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String role = "ADMIN";
+    private String role = "SENIOR_ADMIN";
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

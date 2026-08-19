@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -26,14 +27,52 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
+
+                // ── Admin area ──────────────────────────────────────────────
                 .requestMatchers("/admin/login").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/**").permitAll()
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "SENIOR_ADMIN")
+
+                // ── Customer area (future: require ROLE_CUSTOMER) ───────────
+                // TODO: replace permitAll with .hasRole("CUSTOMER") once auth is implemented
+                .requestMatchers("/account/**").permitAll()
+                .requestMatchers("/checkout/**").permitAll()
+
+                // ── Cart API (future: require ROLE_CUSTOMER or session cart) ─
+                // TODO: replace permitAll with proper cart auth once implemented
+                .requestMatchers("/api/cart/**").permitAll()
+
+                // ── Inquiry API (AJAX, no session) ──────────────────────────
+                .requestMatchers("/api/inquiry").permitAll()
+
+                // ── Payment webhooks (future: verify provider signature) ─────
+                // TODO: add signature verification filter before removing permitAll
+                .requestMatchers("/api/payment/webhook/**").permitAll()
+
+                // ── Public storefront ────────────────────────────────────────
+                .requestMatchers(
+                    "/",
+                    "/product/**",
+                    "/category/**",
+                    "/products",
+                    "/search",
+                    "/inquiry",
+                    "/login",
+                    "/register"
+                ).permitAll()
+
+                // Static resources
+                .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+
                 .anyRequest().permitAll()
             )
             .csrf(csrf -> csrf
-                // Public API endpoints are called via AJAX (fetch) — no session cookie needed
-                .ignoringRequestMatchers("/api/**")
+                // Disable CSRF for stateless API endpoints only
+                .ignoringRequestMatchers(
+                    new AntPathRequestMatcher("/api/inquiry"),
+                    new AntPathRequestMatcher("/api/cart/**"),
+                    // TODO: replace with signature-based verification once implemented
+                    new AntPathRequestMatcher("/api/payment/webhook/**")
+                )
             )
             .formLogin(form -> form
                 .loginPage("/admin/login")
