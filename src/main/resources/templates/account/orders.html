@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title>My Orders — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <section class="cs-section-dark" style="padding:48px 0 64px;">
+    <div class="cs-container">
+
+      <h1 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 32px;">My Account</h1>
+
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
+
+        <!-- Sidebar -->
+        <div th:replace="~{fragments/account-nav :: accountNav('orders')}"></div>
+
+        <!-- Content -->
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:56px 32px;text-align:center;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px;">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="2"/>
+          </svg>
+          <p style="font-size:16px;font-weight:500;color:rgba(255,255,255,0.6);margin:0 0 8px;">No orders yet</p>
+          <p style="font-size:14px;color:rgba(255,255,255,0.35);margin:0 0 24px;">Your order history will appear here once you place your first order.</p>
+          <a th:href="@{/}"
+             style="background:#0071e3;color:#ffffff;text-decoration:none;border-radius:22px;padding:11px 24px;font-size:14px;font-weight:600;">
+            Start Shopping
+          </a>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

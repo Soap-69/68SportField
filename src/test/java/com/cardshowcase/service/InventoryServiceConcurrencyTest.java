@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -20,12 +19,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * stock from going negative under concurrent deductions.
  *
  * Uses H2 (test profile, Flyway disabled, ddl-auto=create-drop).
- * @DirtiesContext ensures the H2 schema is torn down after this class so
- * test data doesn't leak into subsequent test classes.
+ * Each setUp() creates uniquely-slugged entities via nanoTime so data from
+ * previous runs does not interfere. @DirtiesContext is intentionally absent
+ * to avoid dropping the shared H2 schema mid-suite (which would break other
+ * test contexts that use the same mem:testdb database).
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class InventoryServiceConcurrencyTest {
 
     @Autowired private InventoryService         inventoryService;

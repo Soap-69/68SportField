@@ -14,7 +14,6 @@ class SmokeTest extends BaseIntegrationTest {
 
     @Test
     void contextLoads() {
-        // Verifies the Spring application context starts without errors
         assert applicationContext != null;
     }
 
@@ -28,5 +27,29 @@ class SmokeTest extends BaseIntegrationTest {
     void adminRequiresAuth() throws Exception {
         mockMvc.perform(get("/admin"))
                 .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void customerLoginPage_accessible() throws Exception {
+        mockMvc.perform(get("/login"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void registerPage_accessible() throws Exception {
+        mockMvc.perform(get("/register"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void accountPage_requiresAuth() throws Exception {
+        mockMvc.perform(get("/account"))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void adminLoginPage_stillWorks() throws Exception {
+        mockMvc.perform(get("/admin/login"))
+                .andExpect(status().isOk());
     }
 }

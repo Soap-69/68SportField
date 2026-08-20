@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title>My Profile — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <section class="cs-section-dark" style="padding:48px 0 64px;">
+    <div class="cs-container">
+
+      <!-- Page header -->
+      <h1 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 32px;">My Account</h1>
+
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
+
+        <!-- Sidebar -->
+        <div th:replace="~{fragments/account-nav :: accountNav('profile')}"></div>
+
+        <!-- Content -->
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">
+
+          <h2 style="font-size:18px;font-weight:600;color:#ffffff;margin:0 0 8px;">Profile</h2>
+          <p style="font-size:14px;color:rgba(255,255,255,0.5);margin:0 0 28px;"
+             th:text="${customer.email}"></p>
+
+          <!-- Flash messages -->
+          <div th:if="${successMessage}"
+               style="background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;color:#34c759;font-size:14px;"
+               th:text="${successMessage}"></div>
+          <div th:if="${errorMessage}"
+               style="background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;color:#ff3b30;font-size:14px;"
+               th:text="${errorMessage}"></div>
+
+          <form th:action="@{/account/profile}" th:object="${profileDTO}" method="post" novalidate>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">First Name</label>
+                <input type="text" th:field="*{firstName}"
+                       style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;"
+                       placeholder="Jane">
+                <span th:if="${#fields.hasErrors('firstName')}"
+                      th:errors="*{firstName}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Last Name</label>
+                <input type="text" th:field="*{lastName}"
+                       style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;"
+                       placeholder="Smith">
+                <span th:if="${#fields.hasErrors('lastName')}"
+                      th:errors="*{lastName}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+            </div>
+
+            <div style="margin-bottom:18px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Email <span style="color:rgba(255,255,255,0.3);font-weight:400;">(cannot be changed)</span></label>
+              <input type="email" th:value="${customer.email}"
+                     disabled
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:11px 14px;font-size:14px;color:rgba(255,255,255,0.4);outline:none;cursor:not-allowed;">
+            </div>
+
+            <div style="margin-bottom:28px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Phone <span style="color:rgba(255,255,255,0.35);font-weight:400;">(optional)</span></label>
+              <input type="tel" th:field="*{phone}"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;"
+                     placeholder="+1 (555) 000-0000">
+            </div>
+
+            <button type="submit"
+                    style="background:#0071e3;color:#ffffff;border:none;border-radius:22px;padding:11px 28px;font-size:14px;font-weight:600;cursor:pointer;">
+              Save Changes
+            </button>
+
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

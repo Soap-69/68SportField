@@ -1,6 +1,8 @@
 package com.cardshowcase.config;
 
 import com.cardshowcase.controller.CategoryController;
+import com.cardshowcase.controller.CustomerAccountController;
+import com.cardshowcase.controller.CustomerAuthController;
 import com.cardshowcase.controller.HomeController;
 import com.cardshowcase.controller.InquiryController;
 import com.cardshowcase.controller.ProductController;
@@ -18,7 +20,7 @@ import java.util.List;
  * Injects category tree data into every public (non-admin) controller's model.
  * Add new public controllers to {@code assignableTypes} as they are created.
  */
-@ControllerAdvice(assignableTypes = {HomeController.class, CategoryController.class, ProductController.class, ProductListController.class, SearchController.class, InquiryController.class})
+@ControllerAdvice(assignableTypes = {HomeController.class, CategoryController.class, ProductController.class, ProductListController.class, SearchController.class, InquiryController.class, CustomerAuthController.class, CustomerAccountController.class})
 @RequiredArgsConstructor
 public class PublicModelAttributes {
 

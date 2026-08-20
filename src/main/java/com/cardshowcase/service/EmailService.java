@@ -84,7 +84,80 @@ public class EmailService {
         log.debug("sendInquiryStatusUpdate not yet implemented for inquiry id={}", inquiry.getId());
     }
 
-    // ── HTML builder ──────────────────────────────────────────────
+    /**
+     * Sends a password-reset link to the customer's email address.
+     * Runs asynchronously — the web request is never blocked by this call.
+     */
+    @Async
+    public void sendPasswordResetEmail(String toEmail, String customerName, String resetLink) {
+        if (mailSender == null) {
+            log.warn("Password reset email not sent: JavaMailSender not configured (check MAIL_USERNAME / MAIL_PASSWORD)");
+            return;
+        }
+        try {
+            String html = buildPasswordResetHtml(customerName, resetLink);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("Reset your 68 Sport Field password");
+            helper.setText(html, true);
+
+            mailSender.send(message);
+            log.info("Password reset email sent to {}", toEmail);
+        } catch (Exception ex) {
+            log.warn("Password reset email not sent to {}: {}", toEmail, ex.getMessage());
+        }
+    }
+
+    // ── HTML builders ─────────────────────────────────────────────
+
+    private String buildPasswordResetHtml(String customerName, String resetLink) {
+        return "<!DOCTYPE html>" +
+            "<html lang='en'><head><meta charset='UTF-8'>" +
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
+            "<title>Reset Your Password</title></head>" +
+            "<body style='margin:0;padding:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,sans-serif;'>" +
+
+            "<table width='100%' cellpadding='0' cellspacing='0' style='background:#f5f5f7;'><tr><td align='center' style='padding:40px 16px;'>" +
+
+            "<table width='100%' cellpadding='0' cellspacing='0' style='max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);'>" +
+
+            // Header
+            "<tr><td style='background:#1d1d1f;padding:28px 32px;'>" +
+            "  <p style='margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;'>68 Sport Field</p>" +
+            "  <div style='margin-top:10px;height:3px;width:40px;background:#0071e3;border-radius:2px;'></div>" +
+            "</td></tr>" +
+
+            // Body
+            "<tr><td style='padding:32px 32px 24px;'>" +
+            "  <p style='margin:0 0 12px;font-size:18px;font-weight:600;color:#1d1d1f;'>Hello " + escape(customerName) + ",</p>" +
+            "  <p style='margin:0 0 8px;font-size:15px;color:#374151;'>We received a request to reset the password for your 68 Sport Field account.</p>" +
+            "  <p style='margin:0 0 28px;font-size:15px;color:#374151;'>Click the button below to reset your password. This link expires in 24 hours.</p>" +
+            "  <a href='" + resetLink + "' " +
+            "     style='display:inline-block;background:#0071e3;color:#ffffff;text-decoration:none;" +
+            "            font-size:15px;font-weight:600;padding:13px 28px;border-radius:22px;'>" +
+            "    Reset Password →" +
+            "  </a>" +
+            "</td></tr>" +
+
+            // Warning
+            "<tr><td style='padding:0 32px 32px;'>" +
+            "  <p style='margin:0;font-size:13px;color:#6b7280;'>" +
+            "    If you didn&rsquo;t request a password reset, you can safely ignore this email. Your password will not be changed." +
+            "  </p>" +
+            "</td></tr>" +
+
+            // Footer
+            "<tr><td style='padding:20px 32px;background:#f5f5f7;border-top:1px solid #e8e8e8;'>" +
+            "  <p style='margin:0;font-size:12px;color:#9ca3af;text-align:center;'>" +
+            "    This is an automated message from 68 Sport Field." +
+            "  </p>" +
+            "</td></tr>" +
+
+            "</table></td></tr></table></body></html>";
+    }
 
     private String buildNotificationHtml(Inquiry inquiry) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a");

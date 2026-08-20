@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       lang="en">
 <head>
   <meta charset="UTF-8">
@@ -88,6 +89,61 @@
         </div>
 
         <a th:href="@{/inquiry}" class="cs-nav-action-link cs-nav-action-link-contact">Get a Quote</a>
+
+        <!-- User account icon + dropdown (desktop) -->
+        <div style="position:relative;" id="csUserMenu">
+          <button type="button"
+                  id="csUserBtn"
+                  aria-expanded="false"
+                  aria-haspopup="true"
+                  style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;color:inherit;padding:4px 2px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span sec:authorize="hasRole('CUSTOMER')"
+                  style="font-size:13px;font-weight:500;"
+                  sec:authentication="principal.firstName"></span>
+          </button>
+          <!-- Dropdown panel -->
+          <div id="csUserDropdown"
+               style="display:none;position:absolute;right:0;top:calc(100% + 10px);background:#1c1c1e;border:1px solid rgba(255,255,255,0.1);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);min-width:180px;padding:6px;z-index:1000;">
+            <!-- Not logged in -->
+            <div sec:authorize="!hasRole('CUSTOMER')">
+              <a th:href="@{/login}"
+                 style="display:block;padding:10px 14px;font-size:14px;color:rgba(255,255,255,0.85);text-decoration:none;border-radius:8px;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+                Sign In
+              </a>
+              <a th:href="@{/register}"
+                 style="display:block;padding:10px 14px;font-size:14px;color:rgba(255,255,255,0.85);text-decoration:none;border-radius:8px;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+                Create Account
+              </a>
+            </div>
+            <!-- Logged in as customer -->
+            <div sec:authorize="hasRole('CUSTOMER')">
+              <a th:href="@{/account/profile}"
+                 style="display:block;padding:10px 14px;font-size:14px;color:rgba(255,255,255,0.85);text-decoration:none;border-radius:8px;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+                My Account
+              </a>
+              <a th:href="@{/account/orders}"
+                 style="display:block;padding:10px 14px;font-size:14px;color:rgba(255,255,255,0.85);text-decoration:none;border-radius:8px;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+                My Orders
+              </a>
+              <div style="height:1px;background:rgba(255,255,255,0.07);margin:4px 8px;"></div>
+              <form th:action="@{/logout}" method="post" style="margin:0;">
+                <button type="submit"
+                        style="display:block;width:100%;padding:10px 14px;font-size:14px;color:rgba(255,100,100,0.85);background:none;border:none;text-align:left;cursor:pointer;border-radius:8px;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+                  Sign Out
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -188,6 +244,20 @@
 
   <div class="cs-offcanvas-footer">
     <a th:href="@{/inquiry}">Request a Quote</a>
+    <!-- Mobile account links -->
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);">
+      <div sec:authorize="!hasRole('CUSTOMER')">
+        <a th:href="@{/login}"  style="display:block;padding:10px 0;font-size:14px;color:rgba(255,255,255,0.7);text-decoration:none;">Sign In</a>
+        <a th:href="@{/register}" style="display:block;padding:10px 0;font-size:14px;color:rgba(255,255,255,0.7);text-decoration:none;">Create Account</a>
+      </div>
+      <div sec:authorize="hasRole('CUSTOMER')">
+        <a th:href="@{/account/profile}"  style="display:block;padding:10px 0;font-size:14px;color:rgba(255,255,255,0.7);text-decoration:none;">My Account</a>
+        <a th:href="@{/account/orders}"   style="display:block;padding:10px 0;font-size:14px;color:rgba(255,255,255,0.7);text-decoration:none;">My Orders</a>
+        <form th:action="@{/logout}" method="post" style="margin:0;">
+          <button type="submit" style="display:block;padding:10px 0;font-size:14px;color:rgba(255,100,100,0.7);background:none;border:none;cursor:pointer;">Sign Out</button>
+        </form>
+      </div>
+    </div>
   </div>
 
 </aside>
@@ -552,6 +622,24 @@
           window.showToast("Thanks for subscribing! We\u2019ll keep you updated.", 'success');
         }
         input.value = '';
+      }
+    });
+  }
+
+  // ── User account dropdown ─────────────────────────────────────
+  var userBtn      = document.getElementById('csUserBtn');
+  var userDropdown = document.getElementById('csUserDropdown');
+  if (userBtn && userDropdown) {
+    userBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = userDropdown.style.display === 'block';
+      userDropdown.style.display = open ? 'none' : 'block';
+      userBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.getElementById('csUserMenu').contains(e.target)) {
+        userDropdown.style.display = 'none';
+        userBtn.setAttribute('aria-expanded', 'false');
       }
     });
   }

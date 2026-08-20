@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title>Create Account — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <section class="cs-section-dark" style="min-height:calc(100vh - 200px);display:flex;align-items:center;justify-content:center;padding:60px 16px;">
+    <div style="width:100%;max-width:480px;">
+
+      <div style="text-align:center;margin-bottom:32px;">
+        <h1 style="font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-.5px;margin:0 0 8px;">Create Account</h1>
+        <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0;">Join 68 Sport Field wholesale</p>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;">
+        <form th:action="@{/register}" th:object="${registerDTO}" method="post" novalidate>
+
+          <!-- Name row -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+            <div>
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">First Name</label>
+              <input type="text" th:field="*{firstName}"
+                     th:class="${#fields.hasErrors('firstName')} ? 'cs-input cs-input-error' : 'cs-input'"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:15px;color:#ffffff;outline:none;"
+                     placeholder="Jane"
+                     autocomplete="given-name">
+              <span th:if="${#fields.hasErrors('firstName')}"
+                    th:errors="*{firstName}"
+                    style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+            </div>
+            <div>
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Last Name</label>
+              <input type="text" th:field="*{lastName}"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:15px;color:#ffffff;outline:none;"
+                     placeholder="Smith"
+                     autocomplete="family-name">
+              <span th:if="${#fields.hasErrors('lastName')}"
+                    th:errors="*{lastName}"
+                    style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div style="margin-bottom:18px;">
+            <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Email</label>
+            <input type="email" th:field="*{email}"
+                   style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:15px;color:#ffffff;outline:none;"
+                   placeholder="you@example.com"
+                   autocomplete="email">
+            <span th:if="${#fields.hasErrors('email')}"
+                  th:errors="*{email}"
+                  style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+          </div>
+
+          <!-- Phone (optional) -->
+          <div style="margin-bottom:18px;">
+            <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">
+              Phone <span style="color:rgba(255,255,255,0.35);font-weight:400;">(optional)</span>
+            </label>
+            <input type="tel" th:field="*{phone}"
+                   style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:15px;color:#ffffff;outline:none;"
+                   placeholder="+1 (555) 000-0000"
+                   autocomplete="tel">
+          </div>
+
+          <!-- Password -->
+          <div style="margin-bottom:18px;">
+            <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Password</label>
+            <input type="password" th:field="*{password}"
+                   style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:15px;color:#ffffff;outline:none;"
+                   placeholder="Minimum 8 characters"
+                   autocomplete="new-password">
+            <span th:if="${#fields.hasErrors('password')}"
+                  th:errors="*{password}"
+                  style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+            <span style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;display:block;">
+              Must include uppercase, lowercase, and a number.
+            </span>
+          </div>
+
+          <!-- Confirm password -->
+          <div style="margin-bottom:28px;">
+            <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Confirm Password</label>
+            <input type="password" th:field="*{confirmPassword}"
+                   style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:15px;color:#ffffff;outline:none;"
+                   placeholder="••••••••"
+                   autocomplete="new-password">
+            <span th:if="${#fields.hasErrors('confirmPassword')}"
+                  th:errors="*{confirmPassword}"
+                  style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+          </div>
+
+          <button type="submit"
+                  style="width:100%;background:#0071e3;color:#ffffff;border:none;border-radius:22px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;">
+            Create Account
+          </button>
+
+        </form>
+      </div>
+
+      <p style="text-align:center;margin-top:24px;font-size:14px;color:rgba(255,255,255,0.5);">
+        Already have an account?
+        <a th:href="@{/login}" style="color:#0071e3;text-decoration:none;font-weight:500;">Sign In</a>
+      </p>
+
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

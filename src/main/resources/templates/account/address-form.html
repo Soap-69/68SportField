@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title th:text="${isEdit} ? 'Edit Address — 68 Sport Field' : 'Add Address — 68 Sport Field'">Address — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <section class="cs-section-dark" style="padding:48px 0 64px;">
+    <div class="cs-container">
+
+      <h1 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 32px;">My Account</h1>
+
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
+
+        <!-- Sidebar -->
+        <div th:replace="~{fragments/account-nav :: accountNav('addresses')}"></div>
+
+        <!-- Content -->
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">
+
+          <h2 style="font-size:18px;font-weight:600;color:#ffffff;margin:0 0 24px;"
+              th:text="${isEdit} ? 'Edit Address' : 'Add New Address'">Address</h2>
+
+          <form th:action="${isEdit} ? @{/account/addresses/{id}/edit(id=${addressId})} : @{/account/addresses/add}"
+                th:object="${addressDTO}"
+                method="post"
+                novalidate>
+
+            <!-- Label -->
+            <div style="margin-bottom:18px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">
+                Label <span style="color:rgba(255,255,255,0.35);font-weight:400;">(optional)</span>
+              </label>
+              <select th:field="*{label}"
+                      style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+                <option value="">— Select label —</option>
+                <option value="Home">Home</option>
+                <option value="Office">Office</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <!-- Name row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">First Name</label>
+                <input type="text" th:field="*{firstName}"
+                       style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+                <span th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Last Name</label>
+                <input type="text" th:field="*{lastName}"
+                       style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+                <span th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+            </div>
+
+            <!-- Company -->
+            <div style="margin-bottom:18px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">
+                Company <span style="color:rgba(255,255,255,0.35);font-weight:400;">(optional)</span>
+              </label>
+              <input type="text" th:field="*{company}"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+            </div>
+
+            <!-- Address lines -->
+            <div style="margin-bottom:18px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Address Line 1</label>
+              <input type="text" th:field="*{addressLine1}"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;"
+                     placeholder="123 Main St">
+              <span th:if="${#fields.hasErrors('addressLine1')}" th:errors="*{addressLine1}"
+                    style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+            </div>
+            <div style="margin-bottom:18px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">
+                Address Line 2 <span style="color:rgba(255,255,255,0.35);font-weight:400;">(optional)</span>
+              </label>
+              <input type="text" th:field="*{addressLine2}"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;"
+                     placeholder="Suite, apt, unit…">
+            </div>
+
+            <!-- City / State / Zip -->
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:18px;">
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">City</label>
+                <input type="text" th:field="*{city}"
+                       style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+                <span th:if="${#fields.hasErrors('city')}" th:errors="*{city}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">State</label>
+                <select th:field="*{state}"
+                        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+                  <option value="">—</option>
+                  <option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option>
+                  <option value="AR">AR</option><option value="CA">CA</option><option value="CO">CO</option>
+                  <option value="CT">CT</option><option value="DE">DE</option><option value="FL">FL</option>
+                  <option value="GA">GA</option><option value="HI">HI</option><option value="ID">ID</option>
+                  <option value="IL">IL</option><option value="IN">IN</option><option value="IA">IA</option>
+                  <option value="KS">KS</option><option value="KY">KY</option><option value="LA">LA</option>
+                  <option value="ME">ME</option><option value="MD">MD</option><option value="MA">MA</option>
+                  <option value="MI">MI</option><option value="MN">MN</option><option value="MS">MS</option>
+                  <option value="MO">MO</option><option value="MT">MT</option><option value="NE">NE</option>
+                  <option value="NV">NV</option><option value="NH">NH</option><option value="NJ">NJ</option>
+                  <option value="NM">NM</option><option value="NY">NY</option><option value="NC">NC</option>
+                  <option value="ND">ND</option><option value="OH">OH</option><option value="OK">OK</option>
+                  <option value="OR">OR</option><option value="PA">PA</option><option value="RI">RI</option>
+                  <option value="SC">SC</option><option value="SD">SD</option><option value="TN">TN</option>
+                  <option value="TX">TX</option><option value="UT">UT</option><option value="VT">VT</option>
+                  <option value="VA">VA</option><option value="WA">WA</option><option value="WV">WV</option>
+                  <option value="WI">WI</option><option value="WY">WY</option>
+                </select>
+                <span th:if="${#fields.hasErrors('state')}" th:errors="*{state}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">Zip Code</label>
+                <input type="text" th:field="*{zipCode}"
+                       style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;"
+                       placeholder="00000">
+                <span th:if="${#fields.hasErrors('zipCode')}" th:errors="*{zipCode}"
+                      style="font-size:12px;color:#ff3b30;margin-top:4px;display:block;"></span>
+              </div>
+            </div>
+
+            <!-- Phone -->
+            <div style="margin-bottom:28px;">
+              <label style="display:block;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);margin-bottom:8px;">
+                Phone <span style="color:rgba(255,255,255,0.35);font-weight:400;">(optional)</span>
+              </label>
+              <input type="tel" th:field="*{phone}"
+                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 14px;font-size:14px;color:#ffffff;outline:none;">
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:12px;">
+              <button type="submit"
+                      style="background:#0071e3;color:#ffffff;border:none;border-radius:22px;padding:11px 28px;font-size:14px;font-weight:600;cursor:pointer;"
+                      th:text="${isEdit} ? 'Update Address' : 'Save Address'">Save</button>
+              <a th:href="@{/account/addresses}"
+                 style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);text-decoration:none;border-radius:22px;padding:11px 24px;font-size:14px;font-weight:500;">
+                Cancel
+              </a>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

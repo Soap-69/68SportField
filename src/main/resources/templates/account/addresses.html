@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title>My Addresses — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <section class="cs-section-dark" style="padding:48px 0 64px;">
+    <div class="cs-container">
+
+      <h1 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 32px;">My Account</h1>
+
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
+
+        <!-- Sidebar -->
+        <div th:replace="~{fragments/account-nav :: accountNav('addresses')}"></div>
+
+        <!-- Content -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h2 style="font-size:18px;font-weight:600;color:#ffffff;margin:0;">Saved Addresses</h2>
+            <a th:href="@{/account/addresses/add}"
+               style="background:#0071e3;color:#ffffff;text-decoration:none;border-radius:22px;padding:9px 20px;font-size:13px;font-weight:600;">
+              + Add Address
+            </a>
+          </div>
+
+          <!-- Flash messages -->
+          <div th:if="${successMessage}"
+               style="background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;color:#34c759;font-size:14px;"
+               th:text="${successMessage}"></div>
+
+          <!-- Empty state -->
+          <div th:if="${addresses.empty}"
+               style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:48px;text-align:center;">
+            <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 16px;">No saved addresses yet.</p>
+            <a th:href="@{/account/addresses/add}"
+               style="color:#0071e3;text-decoration:none;font-size:14px;font-weight:500;">Add your first address →</a>
+          </div>
+
+          <!-- Address cards -->
+          <div th:each="addr : ${addresses}"
+               style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px 24px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+
+              <!-- Address details -->
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                  <span th:if="${addr.label}"
+                        style="font-size:13px;font-weight:600;color:#ffffff;"
+                        th:text="${addr.label}"></span>
+                  <span th:if="${addr.isDefaultBilling}"
+                        style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(0,113,227,0.2);color:#5ac8fa;border:1px solid rgba(0,113,227,0.3);">
+                    Default Billing
+                  </span>
+                  <span th:if="${addr.isDefaultShipping}"
+                        style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(52,199,89,0.15);color:#34c759;border:1px solid rgba(52,199,89,0.3);">
+                    Default Shipping
+                  </span>
+                </div>
+                <p style="margin:0 0 4px;font-size:14px;font-weight:500;color:#ffffff;"
+                   th:text="${addr.firstName + ' ' + addr.lastName}"></p>
+                <p th:if="${addr.company}" style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.55);"
+                   th:text="${addr.company}"></p>
+                <p style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
+                   th:text="${addr.addressLine1}"></p>
+                <p th:if="${addr.addressLine2}" style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
+                   th:text="${addr.addressLine2}"></p>
+                <p style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
+                   th:text="${addr.city + ', ' + addr.state + ' ' + addr.zipCode}"></p>
+                <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.5);"
+                   th:text="${addr.country}"></p>
+              </div>
+
+              <!-- Actions -->
+              <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+                <a th:href="@{/account/addresses/{id}/edit(id=${addr.id})}"
+                   style="font-size:13px;color:#0071e3;text-decoration:none;font-weight:500;text-align:right;">Edit</a>
+
+                <form th:if="${!addr.isDefaultBilling}"
+                      th:action="@{/account/addresses/{id}/set-default-billing(id=${addr.id})}"
+                      method="post" style="margin:0;">
+                  <button type="submit"
+                          style="background:none;border:none;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;padding:0;text-align:right;">
+                    Set Billing Default
+                  </button>
+                </form>
+
+                <form th:if="${!addr.isDefaultShipping}"
+                      th:action="@{/account/addresses/{id}/set-default-shipping(id=${addr.id})}"
+                      method="post" style="margin:0;">
+                  <button type="submit"
+                          style="background:none;border:none;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;padding:0;text-align:right;">
+                    Set Shipping Default
+                  </button>
+                </form>
+
+                <form th:action="@{/account/addresses/{id}/delete(id=${addr.id})}"
+                      method="post" style="margin:0;"
+                      onsubmit="return confirm('Delete this address?')">
+                  <button type="submit"
+                          style="background:none;border:none;font-size:12px;color:rgba(255,59,48,0.7);cursor:pointer;padding:0;text-align:right;">
+                    Delete
+                  </button>
+                </form>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
