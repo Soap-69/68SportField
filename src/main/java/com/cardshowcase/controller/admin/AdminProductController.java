@@ -3,8 +3,12 @@ package com.cardshowcase.controller.admin;
 import com.cardshowcase.model.dto.ProductDTO;
 import com.cardshowcase.model.entity.Category;
 import com.cardshowcase.model.entity.Product;
+import com.cardshowcase.model.entity.ProductVariant;
+import com.cardshowcase.repository.InventoryLocationRepository;
 import com.cardshowcase.service.CategoryService;
+import com.cardshowcase.service.InventoryService;
 import com.cardshowcase.service.ProductService;
+import com.cardshowcase.service.ProductVariantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.propertyeditors.CustomNumberEditor;
@@ -29,8 +33,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminProductController {
 
-    private final ProductService  productService;
-    private final CategoryService categoryService;
+    private final ProductService          productService;
+    private final CategoryService         categoryService;
+    private final ProductVariantService   variantService;
+    private final InventoryService        inventoryService;
+    private final InventoryLocationRepository locationRepo;
 
     /** Allow empty string → null for Long fields (e.g. categoryId when nothing selected). */
     @InitBinder
@@ -55,14 +62,18 @@ public class AdminProductController {
 
         List<Long> ids = products.getContent().stream().map(Product::getId).toList();
         Map<Long, String> primaryImages = productService.getPrimaryImageUrls(ids);
+        Map<Long, Long>   variantCounts = variantService.getVariantCountsByProductIds(ids);
+        Map<Long, Integer> stockByProduct = inventoryService.getStockByProductIds(ids);
 
-        model.addAttribute("pageTitle",     "Product Management");
-        model.addAttribute("products",      products);
-        model.addAttribute("primaryImages", primaryImages);
-        model.addAttribute("l3Options",     categoryService.getL3WithPath());
-        model.addAttribute("search",        search);
-        model.addAttribute("categoryId",    categoryId);
-        model.addAttribute("status",        status);
+        model.addAttribute("pageTitle",      "Product Management");
+        model.addAttribute("products",       products);
+        model.addAttribute("primaryImages",  primaryImages);
+        model.addAttribute("variantCounts",  variantCounts);
+        model.addAttribute("stockByProduct", stockByProduct);
+        model.addAttribute("l3Options",      categoryService.getL3WithPath());
+        model.addAttribute("search",         search);
+        model.addAttribute("categoryId",     categoryId);
+        model.addAttribute("status",         status);
         return "admin/products/list";
     }
 
@@ -115,15 +126,22 @@ public class AdminProductController {
         Long l1Id   = l1  != null ? l1.getId()       : null;
         Long l2Id   = l2  != null ? l2.getId()       : null;
 
-        model.addAttribute("pageTitle",    "Edit Product");
-        model.addAttribute("form",         form);
-        model.addAttribute("product",      product);
-        model.addAttribute("l1Categories", categoryService.getL1Categories());
-        model.addAttribute("l2Categories", categoryService.getChildrenOf(l1Id));
-        model.addAttribute("l3Categories", categoryService.getChildrenOf(l2Id));
-        model.addAttribute("selectedL1",   l1Id);
-        model.addAttribute("selectedL2",   l2Id);
-        model.addAttribute("editMode",     true);
+        List<ProductVariant> variants = variantService.getVariantsByProduct(id);
+        List<Long> variantIds = variants.stream().map(ProductVariant::getId).toList();
+
+        model.addAttribute("pageTitle",      "Edit Product");
+        model.addAttribute("form",           form);
+        model.addAttribute("product",        product);
+        model.addAttribute("l1Categories",   categoryService.getL1Categories());
+        model.addAttribute("l2Categories",   categoryService.getChildrenOf(l1Id));
+        model.addAttribute("l3Categories",   categoryService.getChildrenOf(l2Id));
+        model.addAttribute("selectedL1",     l1Id);
+        model.addAttribute("selectedL2",     l2Id);
+        model.addAttribute("editMode",       true);
+        model.addAttribute("variants",       variants);
+        model.addAttribute("locations",      locationRepo.findByIsActiveTrue());
+        model.addAttribute("inventoryMap",   inventoryService.buildInventoryMap(variantIds));
+        model.addAttribute("variantStocks",  inventoryService.getTotalStockByVariantIds(variantIds));
         return "admin/products/form";
     }
 
@@ -234,5 +252,14 @@ public class AdminProductController {
         model.addAttribute("selectedL1",   l1Id);
         model.addAttribute("selectedL2",   l2Id);
         model.addAttribute("editMode",     editMode);
+
+        if (editMode && product != null) {
+            List<ProductVariant> variants = variantService.getVariantsByProduct(product.getId());
+            List<Long> variantIds = variants.stream().map(ProductVariant::getId).toList();
+            model.addAttribute("variants",      variants);
+            model.addAttribute("locations",     locationRepo.findByIsActiveTrue());
+            model.addAttribute("inventoryMap",  inventoryService.buildInventoryMap(variantIds));
+            model.addAttribute("variantStocks", inventoryService.getTotalStockByVariantIds(variantIds));
+        }
     }
 }

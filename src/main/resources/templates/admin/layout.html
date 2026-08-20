@@ -70,6 +70,14 @@
                     </a>
                 </li>
 
+                <li class="nav-item mt-2">
+                    <div class="cs-section-label" style="font-size:.65rem;">Inventory</div>
+                    <a class="nav-link" th:href="@{/admin/inventory/locations}"
+                       th:classappend="${currentUri.startsWith('/admin/inventory')} ? 'active' : ''">
+                        <i class="bi bi-geo-alt me-2"></i>Locations
+                    </a>
+                </li>
+
             </ul>
 
             <!-- Bottom: Settings + user info -->

@@ -88,6 +88,8 @@
                             <th>Brand</th>
                             <th style="min-width:130px;">Category</th>
                             <th style="width:110px;">Price</th>
+                            <th class="text-center" style="width:80px;">Variants</th>
+                            <th class="text-center" style="width:70px;">Stock</th>
                             <th style="min-width:190px;">Flags</th>
                             <th class="text-center" style="width:90px;">Status</th>
                             <th class="text-end pe-3" style="width:110px;">Actions</th>
@@ -96,7 +98,7 @@
                     <tbody>
 
                         <tr th:if="${#lists.isEmpty(products.content)}">
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="10" class="text-center text-muted py-5">
                                 <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
                                 No products found.
                                 <a th:href="@{/admin/products/create}">Add the first one.</a>
@@ -155,6 +157,29 @@
                                           th:text="${'$' + #numbers.formatDecimal(p.price, 1, 'COMMA', 2, 'POINT')}"></span>
                                 </span>
                                 <span th:unless="${p.price != null}" class="text-muted">—</span>
+                            </td>
+
+                            <!-- Variants count -->
+                            <td class="text-center">
+                                <span th:with="cnt=${variantCounts != null ? variantCounts[p.id] : null}">
+                                    <span th:if="${cnt != null and cnt > 0}"
+                                          class="badge bg-primary"
+                                          th:text="${cnt}">0</span>
+                                    <span th:unless="${cnt != null and cnt > 0}"
+                                          class="badge bg-warning text-dark"
+                                          title="No variants configured">0</span>
+                                </span>
+                            </td>
+
+                            <!-- Total stock -->
+                            <td class="text-center">
+                                <span th:with="stk=${stockByProduct != null ? stockByProduct[p.id] : null}">
+                                    <span th:if="${stk != null and stk > 0}"
+                                          class="small fw-semibold"
+                                          th:text="${stk}">0</span>
+                                    <span th:unless="${stk != null and stk > 0}"
+                                          class="small text-muted">—</span>
+                                </span>
                             </td>
 
                             <!-- Flags (clickable badge-buttons) -->

@@ -25,7 +25,8 @@
       "Bash(chmod +x:*)",
       "Bash(sed:*)",
       "Bash(mvn test:*)",
-      "Bash(./mvnw test:*)"
+      "Bash(./mvnw test:*)",
+      "Bash(docker exec card-db:*)"
     ]
   }
 }

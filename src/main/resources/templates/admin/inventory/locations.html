@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head><title>Inventory Locations</title></head>
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-0">Inventory Locations</h2>
+            <p class="text-muted small mb-0">Manage warehouse and storage locations</p>
+        </div>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+            <i class="bi bi-plus-circle me-1"></i>Add Location
+        </button>
+    </div>
+
+    <!-- Locations table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Name</th>
+                            <th>Address</th>
+                            <th class="text-center" style="width:90px;">Status</th>
+                            <th class="text-end pe-3" style="width:130px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(locations)}">
+                            <td colspan="4" class="text-center text-muted py-5">
+                                <i class="bi bi-geo-alt fs-2 d-block mb-2"></i>
+                                No locations yet.
+                            </td>
+                        </tr>
+                        <tr th:each="loc : ${locations}">
+                            <td class="ps-3 fw-medium" th:text="${loc.name}"></td>
+                            <td class="text-muted small" th:text="${loc.address ?: '—'}"></td>
+                            <td class="text-center">
+                                <form th:action="@{/admin/inventory/locations/{id}/toggle-active(id=${loc.id})}"
+                                      method="post" class="m-0">
+                                    <button type="submit"
+                                            th:class="${loc.isActive} ? 'badge bg-success border-0 py-1 px-2' : 'badge bg-secondary border-0 py-1 px-2'"
+                                            style="font-size:.75rem;cursor:pointer;"
+                                            th:text="${loc.isActive} ? 'Active' : 'Inactive'">
+                                    </button>
+                                </form>
+                            </td>
+                            <td class="text-end pe-3">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editLocationModal"
+                                        th:attr="data-id=${loc.id}, data-name=${loc.name}, data-address=${loc.address ?: ''}">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Location Modal -->
+    <div class="modal fade" id="addLocationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold">
+                        <i class="bi bi-geo-alt-fill me-2 text-primary"></i>Add Location
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form th:action="@{/admin/inventory/locations/create}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" required maxlength="100"
+                                   placeholder="e.g. MA Warehouse">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Address</label>
+                            <input type="text" name="address" class="form-control" maxlength="500"
+                                   placeholder="e.g. Massachusetts, USA">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i>Add Location
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Location Modal -->
+    <div class="modal fade" id="editLocationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold">
+                        <i class="bi bi-pencil me-2 text-primary"></i>Edit Location
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editLocationForm" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Name <span class="text-danger">*</span></label>
+                            <input type="text" id="editLocName" name="name" class="form-control"
+                                   required maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Address</label>
+                            <input type="text" id="editLocAddress" name="address" class="form-control"
+                                   maxlength="500">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts">
+<script th:inline="javascript">
+    const base = /*[[@{/admin/inventory/locations}]]*/ '/admin/inventory/locations';
+    document.getElementById('editLocationModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('editLocName').value    = btn.getAttribute('data-name');
+        document.getElementById('editLocAddress').value = btn.getAttribute('data-address');
+        document.getElementById('editLocationForm').action = base + '/' + btn.getAttribute('data-id') + '/edit';
+    });
+</script>
+</th:block>
+
+</body>
+</html>

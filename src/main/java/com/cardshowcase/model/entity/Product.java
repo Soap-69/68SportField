@@ -17,7 +17,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"category", "images"})
+@ToString(exclude = {"category", "images", "variants"})
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Product {
 
@@ -91,6 +91,11 @@ public class Product {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
     private List<ProductImage> images = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("variantType ASC")
+    private List<ProductVariant> variants = new ArrayList<>();
 
     @Column(name = "sort_order", nullable = false)
     @Builder.Default
