@@ -4,6 +4,8 @@ import com.cardshowcase.model.dto.BreadcrumbItem;
 import com.cardshowcase.model.entity.Category;
 import com.cardshowcase.model.entity.Product;
 import com.cardshowcase.model.entity.ProductImage;
+import com.cardshowcase.model.entity.ProductVariant;
+import com.cardshowcase.service.InventoryService;
 import com.cardshowcase.service.ProductService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -13,12 +15,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
 public class ProductController {
 
     private final ProductService productService;
+    private final InventoryService inventoryService;
 
     @GetMapping("/product/{slug}")
     public String product(@PathVariable String slug,
@@ -53,11 +57,17 @@ public class ProductController {
                 : productService.getPrimaryImageUrls(
                         relatedProducts.stream().map(Product::getId).toList());
 
+        List<Long> variantIds = product.getVariants().stream()
+                .filter(v -> Boolean.TRUE.equals(v.getIsActive()))
+                .map(ProductVariant::getId).toList();
+        Map<Long, Integer> variantStock = inventoryService.getTotalStockByVariantIds(variantIds);
+
         model.addAttribute("product",         product);
         model.addAttribute("images",          images);
         model.addAttribute("breadcrumbs",     breadcrumbs);
         model.addAttribute("relatedProducts", relatedProducts);
         model.addAttribute("relatedImages",   relatedImages);
+        model.addAttribute("variantStock",    variantStock);
 
         return "product";
     }

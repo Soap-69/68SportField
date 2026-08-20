@@ -1,6 +1,7 @@
 package com.cardshowcase.config;
 
 import com.cardshowcase.repository.AdminUserRepository;
+import com.cardshowcase.service.CustomLoginSuccessHandler;
 import com.cardshowcase.service.CustomerUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,11 +25,14 @@ public class SecurityConfig {
 
     private final AdminUserRepository adminUserRepository;
     private final CustomerUserDetailsService customerUserDetailsService;
+    private final CustomLoginSuccessHandler customLoginSuccessHandler;
 
     public SecurityConfig(AdminUserRepository adminUserRepository,
-                          CustomerUserDetailsService customerUserDetailsService) {
+                          CustomerUserDetailsService customerUserDetailsService,
+                          CustomLoginSuccessHandler customLoginSuccessHandler) {
         this.adminUserRepository = adminUserRepository;
         this.customerUserDetailsService = customerUserDetailsService;
+        this.customLoginSuccessHandler = customLoginSuccessHandler;
     }
 
     @Bean
@@ -75,7 +79,7 @@ public class SecurityConfig {
                 // Customer auth pages and public storefront — open
                 .requestMatchers(
                     "/login", "/register", "/forgot-password", "/reset-password",
-                    "/checkout/**",
+                    "/cart", "/checkout", "/checkout/**",
                     "/", "/product/**", "/category/**", "/products", "/search", "/inquiry"
                 ).permitAll()
 
@@ -92,6 +96,7 @@ public class SecurityConfig {
                 .loginProcessingUrl("/login")
                 .defaultSuccessUrl("/account", true)
                 .failureUrl("/login?error")
+                .successHandler(customLoginSuccessHandler)
                 .permitAll()
             )
             .logout(logout -> logout

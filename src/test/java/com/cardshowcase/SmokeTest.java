@@ -52,4 +52,16 @@ class SmokeTest extends BaseIntegrationTest {
         mockMvc.perform(get("/admin/login"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void cartPage_accessible() throws Exception {
+        mockMvc.perform(get("/cart"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void checkoutPage_accessible() throws Exception {
+        mockMvc.perform(get("/checkout"))
+                .andExpect(status().isOk());
+    }
 }

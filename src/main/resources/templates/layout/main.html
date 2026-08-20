@@ -88,6 +88,19 @@
           </button>
         </div>
 
+        <!-- Cart icon -->
+        <a th:href="@{/cart}"
+           style="position:relative;display:inline-flex;align-items:center;justify-content:center;padding:4px;color:inherit;text-decoration:none;"
+           aria-label="View cart">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+          </svg>
+          <span id="csCartBadge"
+                th:text="${cartItemCount != null and cartItemCount > 0 ? cartItemCount : ''}"
+                th:style="${cartItemCount != null and cartItemCount > 0 ? 'display:flex' : 'display:none'}"
+                style="position:absolute;top:-6px;right:-6px;background:#ff3b30;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;align-items:center;justify-content:center;line-height:1;">0</span>
+        </a>
+
         <a th:href="@{/inquiry}" class="cs-nav-action-link cs-nav-action-link-contact">Get a Quote</a>
 
         <!-- User account icon + dropdown (desktop) -->
@@ -244,6 +257,12 @@
 
   <div class="cs-offcanvas-footer">
     <a th:href="@{/inquiry}">Request a Quote</a>
+    <a th:href="@{/cart}" style="display:inline-flex;align-items:center;gap:6px;margin-left:16px;">
+      Cart
+      <span th:if="${cartItemCount != null and cartItemCount > 0}"
+            th:text="${cartItemCount}"
+            style="background:#ff3b30;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"></span>
+    </a>
     <!-- Mobile account links -->
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);">
       <div sec:authorize="!hasRole('CUSTOMER')">

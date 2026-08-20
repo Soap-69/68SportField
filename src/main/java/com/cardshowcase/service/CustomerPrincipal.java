@@ -17,12 +17,14 @@ import java.util.List;
 @Getter
 public class CustomerPrincipal implements UserDetails {
 
+    private final Long id;
     private final String email;
     private final String passwordHash;
     private final String firstName;
     private final boolean active;
 
     public CustomerPrincipal(Customer customer) {
+        this.id = customer.getId();
         this.email = customer.getEmail();
         this.passwordHash = customer.getPasswordHash();
         this.firstName = customer.getFirstName();

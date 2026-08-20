@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}" lang="en">
+<head>
+  <title>Your Cart — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+<section class="cs-section-light cs-section" style="min-height:60vh;">
+  <div class="cs-container" style="max-width:1070px;">
+
+    <h1 style="font-size:clamp(1.5rem,3vw,2rem);font-weight:700;margin-bottom:1.5rem;">Your Cart</h1>
+
+    <!-- Warnings -->
+    <div th:each="w : ${warnings}"
+         style="background:#fff8e1;border:1px solid #f9a825;border-radius:10px;padding:12px 18px;margin-bottom:12px;font-size:14px;color:#7a5a00;"
+         th:text="${w}"></div>
+
+    <!-- Empty state -->
+    <div th:if="${#lists.isEmpty(items)}" style="text-align:center;padding:80px 0;">
+      <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:20px;">
+        <circle cx="22" cy="54" r="4"/><circle cx="46" cy="54" r="4"/>
+        <path d="M4 8h8l8 32h24l6-20H18"/>
+      </svg>
+      <p style="font-size:18px;color:#6e6e73;margin-bottom:24px;">Your cart is empty.</p>
+      <a th:href="@{/}" class="cs-btn-pill cs-btn-pill-blue">Continue Shopping</a>
+    </div>
+
+    <!-- Cart content -->
+    <div th:unless="${#lists.isEmpty(items)}" style="display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start;">
+
+      <!-- Items list -->
+      <div id="cartItemsList">
+        <div th:each="item : ${items}"
+             th:id="${'cart-row-' + item.id}"
+             style="display:grid;grid-template-columns:80px 1fr auto;gap:16px;align-items:center;padding:20px 0;border-bottom:1px solid #e5e5ea;">
+
+          <!-- Image -->
+          <div style="width:80px;height:80px;background:#f0f0f0;border-radius:10px;overflow:hidden;flex-shrink:0;">
+            <img th:if="${item.variant.imageUrl != null}"
+                 th:src="${item.variant.imageUrl}"
+                 th:alt="${item.variant.product.name}"
+                 style="width:100%;height:100%;object-fit:cover;">
+            <img th:if="${item.variant.imageUrl == null}"
+                 src="/images/no-image.svg"
+                 alt="No image"
+                 style="width:100%;height:100%;object-fit:cover;padding:10px;">
+          </div>
+
+          <!-- Name + variant + price -->
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#1d1d1f;margin-bottom:4px;"
+                 th:text="${item.variant.product.name}">Product Name</div>
+            <div style="font-size:12px;color:#6e6e73;margin-bottom:8px;">
+              <span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;"
+                    th:text="${item.variant.variantType}">Box</span>
+            </div>
+            <!-- Unit price -->
+            <div style="font-size:14px;color:#1d1d1f;">
+              <span th:if="${item.variant.salePrice != null}"
+                    style="text-decoration:line-through;color:#6e6e73;margin-right:6px;"
+                    th:text="${'$' + #numbers.formatDecimal(item.variant.price, 1, 'COMMA', 2, 'POINT')}"></span>
+              <span th:text="${'$' + #numbers.formatDecimal(item.effectivePrice, 1, 'COMMA', 2, 'POINT')}"></span>
+              <span style="color:#6e6e73;margin-left:4px;">each</span>
+            </div>
+          </div>
+
+          <!-- Qty controls + subtotal + remove -->
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+            <!-- Subtotal -->
+            <div style="font-size:16px;font-weight:600;color:#1d1d1f;"
+                 th:id="${'subtotal-' + item.id}"
+                 th:text="${'$' + #numbers.formatDecimal(item.subtotal, 1, 'COMMA', 2, 'POINT')}">$0.00</div>
+            <!-- Qty -->
+            <div style="display:flex;align-items:center;gap:0;border:1px solid #d2d2d7;border-radius:8px;overflow:hidden;">
+              <button type="button"
+                      th:attr="data-item-id=${item.id}"
+                      class="cart-qty-btn cart-qty-minus"
+                      style="width:36px;height:36px;background:none;border:none;font-size:18px;cursor:pointer;color:#1d1d1f;">&#8722;</button>
+              <span th:id="${'qty-' + item.id}"
+                    style="min-width:32px;text-align:center;font-size:15px;font-weight:500;"
+                    th:text="${item.quantity}">1</span>
+              <button type="button"
+                      th:attr="data-item-id=${item.id}"
+                      class="cart-qty-btn cart-qty-plus"
+                      style="width:36px;height:36px;background:none;border:none;font-size:18px;cursor:pointer;color:#1d1d1f;">+</button>
+            </div>
+            <!-- Remove -->
+            <button type="button"
+                    th:attr="data-item-id=${item.id}"
+                    class="cart-remove-btn"
+                    style="font-size:12px;color:#6e6e73;background:none;border:none;cursor:pointer;text-decoration:underline;">
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div style="background:#f5f5f7;border-radius:16px;padding:24px;position:sticky;top:100px;">
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:20px;">Order Summary</h2>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:15px;">
+          <span>Subtotal</span>
+          <span id="cartTotalDisplay"
+                th:text="${'$' + #numbers.formatDecimal(cartSubtotal, 1, 'COMMA', 2, 'POINT')}">$0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:15px;color:#6e6e73;">
+          <span>Shipping</span><span>Calculated at checkout</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px;font-size:15px;color:#6e6e73;">
+          <span>Tax</span><span>Calculated at checkout</span>
+        </div>
+        <div style="border-top:1px solid #d2d2d7;padding-top:16px;display:flex;justify-content:space-between;font-size:17px;font-weight:700;margin-bottom:24px;">
+          <span>Estimated Total</span>
+          <span id="cartEstimatedTotal"
+                th:text="${'$' + #numbers.formatDecimal(cartSubtotal, 1, 'COMMA', 2, 'POINT')}">$0.00</span>
+        </div>
+        <a th:href="@{/checkout}" class="cs-btn-pill cs-btn-pill-blue" style="display:block;text-align:center;width:100%;box-sizing:border-box;">
+          Proceed to Checkout
+        </a>
+        <div style="text-align:center;margin-top:14px;">
+          <a th:href="@{/}" style="font-size:13px;color:#6e6e73;text-decoration:none;">&#8592; Continue Shopping</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</div>
+
+<th:block layout:fragment="scripts">
+<script>
+(function() {
+  'use strict';
+
+  function formatMoney(val) {
+    return '$' + parseFloat(val).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function updateTotal(newTotal) {
+    var el1 = document.getElementById('cartTotalDisplay');
+    var el2 = document.getElementById('cartEstimatedTotal');
+    if (el1) el1.textContent = formatMoney(newTotal);
+    if (el2) el2.textContent = formatMoney(newTotal);
+  }
+
+  function updateNavBadge(count) {
+    var badge = document.getElementById('csCartBadge');
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+  }
+
+  function apiPost(url, data) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(function(r) { return r.json(); });
+  }
+
+  // Qty change
+  document.querySelectorAll('.cart-qty-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var itemId = this.getAttribute('data-item-id');
+      var qtyEl = document.getElementById('qty-' + itemId);
+      var current = parseInt(qtyEl.textContent);
+      var delta = this.classList.contains('cart-qty-plus') ? 1 : -1;
+      var newQty = current + delta;
+      if (newQty < 0) return;
+      apiPost('/api/cart/update', { cartItemId: parseInt(itemId), quantity: newQty })
+        .then(function(data) {
+          if (!data.success) {
+            if (typeof window.showToast === 'function') window.showToast(data.message || 'Update failed', 'error');
+            return;
+          }
+          if (newQty === 0) {
+            var row = document.getElementById('cart-row-' + itemId);
+            if (row) row.remove();
+          } else {
+            window.location.reload();
+          }
+          if (data.cartTotal) updateTotal(data.cartTotal);
+          updateNavBadge(data.cartItemCount);
+        });
+    });
+  });
+
+  // Remove
+  document.querySelectorAll('.cart-remove-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var itemId = this.getAttribute('data-item-id');
+      apiPost('/api/cart/remove', { cartItemId: parseInt(itemId) })
+        .then(function(data) {
+          if (!data.success) return;
+          var row = document.getElementById('cart-row-' + itemId);
+          if (row) {
+            row.style.transition = 'opacity 0.25s';
+            row.style.opacity = '0';
+            setTimeout(function() {
+              row.remove();
+              if (document.querySelectorAll('[id^="cart-row-"]').length === 0) {
+                window.location.reload();
+              }
+            }, 250);
+          }
+          if (data.cartTotal) updateTotal(data.cartTotal);
+          updateNavBadge(data.cartItemCount);
+        });
+    });
+  });
+
+})();
+</script>
+</th:block>
+
+</body>
+</html>
