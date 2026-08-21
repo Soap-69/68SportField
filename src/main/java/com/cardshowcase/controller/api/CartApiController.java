@@ -29,6 +29,8 @@ public class CartApiController {
         try {
             Long variantId = Long.valueOf(body.get("variantId").toString());
             int quantity = Integer.parseInt(body.get("quantity").toString());
+            if (quantity <= 0)
+                return ResponseEntity.ok(Map.of("success", false, "message", "Quantity must be at least 1."));
             Long customerId = principal != null ? principal.getId() : null;
             Cart cart = cartService.getOrCreateCart(request, response, customerId);
             cart = cartService.addToCart(cart, variantId, quantity);

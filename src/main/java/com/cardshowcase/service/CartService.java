@@ -29,6 +29,12 @@ public class CartService {
     public static final String COOKIE_NAME = "cart_token";
     private static final int COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
+    @org.springframework.beans.factory.annotation.Value("${app.cart.cookie.secure:false}")
+    private boolean cookieSecure;
+
+    @org.springframework.beans.factory.annotation.Value("${app.cart.cookie.same-site:Lax}")
+    private String cookieSameSite;
+
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductVariantRepository variantRepository;
@@ -69,6 +75,9 @@ public class CartService {
     // ── Cart Operations ──────────────────────────────────────────
 
     public Cart addToCart(Cart cart, Long variantId, int quantity) {
+        if (quantity <= 0)
+            throw new IllegalArgumentException("Quantity must be at least 1.");
+
         ProductVariant variant = variantRepository.findById(variantId)
                 .orElseThrow(() -> new IllegalArgumentException("Variant not found: " + variantId));
 
@@ -231,7 +240,16 @@ public class CartService {
         cookie.setMaxAge(COOKIE_MAX_AGE);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
-        response.addCookie(cookie);
+        cookie.setSecure(cookieSecure);
+        // jakarta.servlet.http.Cookie does not expose SameSite directly;
+        // set it via the Set-Cookie header attribute.
+        response.setHeader("Set-Cookie",
+                COOKIE_NAME + "=" + token
+                + "; Max-Age=" + COOKIE_MAX_AGE
+                + "; Path=/"
+                + "; HttpOnly"
+                + (cookieSecure ? "; Secure" : "")
+                + "; SameSite=" + cookieSameSite);
     }
 
     public void deleteCartCookie(HttpServletResponse response) {

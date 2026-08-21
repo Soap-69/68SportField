@@ -45,6 +45,10 @@ app:
   notification:
     admin-email: ${ADMIN_EMAIL:}
     enabled: true
+  cart:
+    cookie:
+      secure: false   # set true in production (HTTPS only)
+      same-site: Lax
 
 server:
   port: 8080

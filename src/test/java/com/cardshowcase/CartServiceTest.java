@@ -85,6 +85,20 @@ class CartServiceTest extends BaseIntegrationTest {
     }
 
     @Test
+    void addToCart_zeroQuantity_throwsIllegalArgument() {
+        assertThatThrownBy(() -> cartService.addToCart(guestCart, variant.getId(), 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least 1");
+    }
+
+    @Test
+    void addToCart_negativeQuantity_throwsIllegalArgument() {
+        assertThatThrownBy(() -> cartService.addToCart(guestCart, variant.getId(), -5))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least 1");
+    }
+
+    @Test
     void removeItem_success() {
         Cart cart = cartService.addToCart(guestCart, variant.getId(), 1);
         CartItem item = cartItemRepository.findByCartId(cart.getId()).get(0);

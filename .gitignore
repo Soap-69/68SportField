@@ -42,3 +42,4 @@ test-uploads/
 *.log
 logs/
 .claude/
+cookies.txt
