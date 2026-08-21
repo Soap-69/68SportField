@@ -8,6 +8,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,11 @@ public class CartService {
 
     @org.springframework.beans.factory.annotation.Value("${app.cart.cookie.same-site:Lax}")
     private String cookieSameSite;
+
+    @PostConstruct
+    void logCookieConfig() {
+        log.info("Cart cookie config: secure={}, sameSite={}", cookieSecure, cookieSameSite);
+    }
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
@@ -99,10 +105,11 @@ public class CartService {
             throw new InsufficientStockException(msg);
         }
 
-        CartItem item = existing.orElseGet(() -> {
-            CartItem ci = CartItem.builder().cart(cart).variant(variant).quantity(0).build();
-            return cartItemRepository.save(ci);
-        });
+        // Build a new item (unsaved) or reuse the existing JPA-managed entity.
+        // quantity(0) is a placeholder — setQuantity below applies the real value
+        // before the single save, so the V19 CHECK (quantity > 0) is never violated.
+        CartItem item = existing.orElseGet(() ->
+                CartItem.builder().cart(cart).variant(variant).quantity(0).build());
         item.setQuantity(newQuantity);
         cartItemRepository.save(item);
         return cartRepository.findById(cart.getId()).orElse(cart);
@@ -241,15 +248,11 @@ public class CartService {
         cookie.setPath("/");
         cookie.setHttpOnly(true);
         cookie.setSecure(cookieSecure);
-        // jakarta.servlet.http.Cookie does not expose SameSite directly;
-        // set it via the Set-Cookie header attribute.
-        response.setHeader("Set-Cookie",
-                COOKIE_NAME + "=" + token
-                + "; Max-Age=" + COOKIE_MAX_AGE
-                + "; Path=/"
-                + "; HttpOnly"
-                + (cookieSecure ? "; Secure" : "")
-                + "; SameSite=" + cookieSameSite);
+        // Servlet 6.0 (Jakarta EE 10 / Tomcat 10.1) exposes SameSite via setAttribute.
+        // Using addCookie keeps all other Set-Cookie headers (JSESSIONID etc.) intact.
+        cookie.setAttribute("SameSite", cookieSameSite);
+        response.addCookie(cookie);
+        log.debug("Cart cookie set [secure={}, sameSite={}]", cookieSecure, cookieSameSite);
     }
 
     public void deleteCartCookie(HttpServletResponse response) {

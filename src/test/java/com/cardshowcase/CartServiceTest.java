@@ -70,6 +70,15 @@ class CartServiceTest extends BaseIntegrationTest {
     }
 
     @Test
+    void addToCart_newItem_persistsRequestedQuantity() {
+        // Regression guard: the CartItem must be persisted with the requested quantity,
+        // not with an intermediate quantity=0 that violates the cart_items CHECK constraint.
+        Cart cart = cartService.addToCart(guestCart, variant.getId(), 6);
+        CartItem saved = cartItemRepository.findByCartId(cart.getId()).get(0);
+        assertThat(saved.getQuantity()).isEqualTo(6);
+    }
+
+    @Test
     void addToCart_existingItem_quantityIncreases() {
         cartService.addToCart(guestCart, variant.getId(), 2);
         cartService.addToCart(guestCart, variant.getId(), 3);

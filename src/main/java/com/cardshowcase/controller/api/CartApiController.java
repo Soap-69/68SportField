@@ -7,6 +7,7 @@ import com.cardshowcase.exception.InsufficientStockException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/cart")
 @RequiredArgsConstructor
@@ -43,6 +45,8 @@ public class CartApiController {
         } catch (InsufficientStockException e) {
             return ResponseEntity.ok(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
+            log.error("Unexpected error in addToCart [variantId={}, qty={}]",
+                    body.get("variantId"), body.get("quantity"), e);
             return ResponseEntity.ok(Map.of("success", false, "message", "Unable to add item to cart."));
         }
     }
