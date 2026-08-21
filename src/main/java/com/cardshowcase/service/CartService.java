@@ -77,6 +77,8 @@ public class CartService {
         if (variant.getProduct() == null || !Boolean.TRUE.equals(variant.getProduct().getIsActive()))
             throw new IllegalArgumentException("This product is no longer available.");
 
+        // Validate stock only — inventory is NOT deducted here.
+        // Deduction happens at checkout when the order is confirmed.
         int stock = inventoryService.getTotalStock(variantId);
         Optional<CartItem> existing = cartItemRepository.findByCartIdAndVariantId(cart.getId(), variantId);
 

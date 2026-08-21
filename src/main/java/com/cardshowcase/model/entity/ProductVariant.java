@@ -54,6 +54,11 @@ public class ProductVariant {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /** Returns the effective unit price: salePrice if set, otherwise price. */
+    public BigDecimal getEffectivePrice() {
+        return salePrice != null ? salePrice : (price != null ? price : BigDecimal.ZERO);
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

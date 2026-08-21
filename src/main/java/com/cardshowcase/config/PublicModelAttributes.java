@@ -18,10 +18,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Injects category tree data and cart item count into every public (non-admin) controller's model.
@@ -33,6 +35,23 @@ public class PublicModelAttributes {
 
     private final CategoryService categoryService;
     private final CartService cartService;
+
+    /**
+     * Exposes the CSRF token to templates so AJAX calls can read it from a meta tag.
+     * Spring Security stores either a CsrfToken or a Supplier<CsrfToken> as a request attribute;
+     * we resolve it here so templates see a plain CsrfToken with .token and .headerName.
+     */
+    @ModelAttribute("_csrf")
+    @SuppressWarnings("unchecked")
+    public CsrfToken csrfToken(HttpServletRequest request) {
+        Object attr = request.getAttribute(CsrfToken.class.getName());
+        if (attr instanceof CsrfToken token) return token;
+        if (attr instanceof Supplier<?> supplier) {
+            Object value = supplier.get();
+            if (value instanceof CsrfToken token) return token;
+        }
+        return null;
+    }
 
     @ModelAttribute("categoryTree")
     public List<CategoryTreeNode> categoryTree() {

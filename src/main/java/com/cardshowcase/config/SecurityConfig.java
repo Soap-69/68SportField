@@ -3,6 +3,7 @@ package com.cardshowcase.config;
 import com.cardshowcase.repository.AdminUserRepository;
 import com.cardshowcase.service.CustomLoginSuccessHandler;
 import com.cardshowcase.service.CustomerUserDetailsService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -19,6 +20,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import java.util.function.Supplier;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -126,12 +128,35 @@ public class SecurityConfig {
                                        jakarta.servlet.http.HttpServletResponse response,
                                        Supplier<CsrfToken> deferredCsrfToken) {
                         super.handle(request, response, deferredCsrfToken);
-                        deferredCsrfToken.get(); // create session + store token before body buffering starts
+                        // ── CSRF timing fix ───────────────────────────────────────────────────
+                        // The main.html layout (navbar + mega-menu + off-canvas) exceeds Tomcat's
+                        // 8 KB response buffer before <form th:action> is reached.  Without this
+                        // eager get(), HttpSessionCsrfTokenRepository.saveToken() would attempt
+                        // request.getSession(true) AFTER the response committed, throwing
+                        // "Cannot create a session after the response has been committed", leaving
+                        // no token in the session and causing a 403 on the subsequent POST.
+                        //
+                        // Calling get() here forces saveToken() while the response is still open.
+                        // When th:action later calls getExtraHiddenFields() the Supplier is already
+                        // resolved (cached) and returns the stored token without touching the session.
+                        //
+                        // The committed-state log below is a canary: it should ALWAYS print false.
+                        // If it ever prints true, a filter ahead of CsrfFilter is flushing bytes,
+                        // which would mean this fix no longer protects the session write.
+                        if (response.isCommitted()) {
+                            log.error("CSRF-TIMING BUG: response already committed before saveToken() " +
+                                      "for {} {} — CSRF token cannot be persisted to session; " +
+                                      "next form POST will receive 403",
+                                      request.getMethod(), request.getRequestURI());
+                        }
+                        deferredCsrfToken.get(); // materialise token + write to session NOW
+                        log.debug("CSRF token materialised [method={} uri={} committed={}]",
+                                  request.getMethod(), request.getRequestURI(),
+                                  response.isCommitted());
                     }
                 })
                 .ignoringRequestMatchers(
                     new AntPathRequestMatcher("/api/inquiry"),
-                    new AntPathRequestMatcher("/api/cart/**"),
                     new AntPathRequestMatcher("/api/payment/webhook/**")
                 )
             )

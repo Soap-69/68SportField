@@ -12,9 +12,11 @@
     <div sec:authorize="!isAuthenticated()">
       <h1 style="font-size:2rem;font-weight:700;margin-bottom:1rem;">How would you like to continue?</h1>
       <p style="color:#6e6e73;margin-bottom:2rem;">Sign in for faster checkout or continue as a guest.</p>
-      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
-        <a th:href="@{/login}" class="cs-btn-pill cs-btn-pill-blue">Sign In</a>
-        <a th:href="@{/cart}" style="padding:14px 28px;border-radius:980px;border:1.5px solid #1d1d1f;font-size:15px;text-decoration:none;color:#1d1d1f;">Continue as Guest</a>
+      <div style="display:flex;gap:16px;justify-content:center;align-items:center;flex-wrap:wrap;">
+        <a th:href="@{/login}" class="cs-btn-pill cs-btn-pill-blue"
+           style="display:inline-flex;align-items:center;justify-content:center;">Sign In</a>
+        <a th:href="@{/cart}"
+           style="display:inline-flex;align-items:center;justify-content:center;padding:12px 28px;border-radius:980px;border:1.5px solid #1d1d1f;font-size:17px;font-weight:400;line-height:1;text-decoration:none;color:#1d1d1f;transition:opacity 0.2s ease;">Continue as Guest</a>
       </div>
     </div>
 

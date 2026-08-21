@@ -32,11 +32,10 @@ public class CartItem {
     @PrePersist
     void prePersist() { addedAt = LocalDateTime.now(); }
 
-    /** Returns effective unit price (salePrice if set, otherwise price). */
+    /** Returns effective unit price — delegates to variant's own logic. */
     public BigDecimal getEffectivePrice() {
         if (variant == null) return BigDecimal.ZERO;
-        BigDecimal sp = variant.getSalePrice();
-        return (sp != null) ? sp : (variant.getPrice() != null ? variant.getPrice() : BigDecimal.ZERO);
+        return variant.getEffectivePrice();
     }
 
     /** Line subtotal = effectivePrice × quantity */

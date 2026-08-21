@@ -6,30 +6,61 @@
 <head>
   <title th:text="${product.name} + ' — 68 Sport Field'">Product — 68 Sport Field</title>
   <style>
-    .cs-variant-card {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-      padding: 12px 18px;
-      border: 1.5px solid rgba(255,255,255,0.15);
-      border-radius: 12px;
-      background: rgba(255,255,255,0.05);
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      color: inherit;
-      min-width: 120px;
-    }
-    .cs-variant-card:hover {
-      border-color: rgba(255,255,255,0.35);
+    /* ── Variant pill toggles ─────────────────────────────────────────
+       No border, no box — just a subtle fill that becomes a solid blue
+       on selection. Reads as a pill/tab row, not a grid of cards.      */
+    .cs-variant-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 15px;
+      border-radius: 980px;
+      border: none;
       background: rgba(255,255,255,0.08);
+      cursor: pointer;
+      transition: background 0.14s, color 0.14s;
+      color: rgba(255,255,255,0.62);
+      white-space: nowrap;
     }
-    .cs-variant-card-selected {
-      border-color: #0071e3 !important;
-      background: rgba(0,113,227,0.12) !important;
+    .cs-variant-pill:hover {
+      background: rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.9);
     }
-    .cs-variant-type { font-size: 14px; font-weight: 600; }
-    .cs-variant-price { font-size: 13px; opacity: 0.8; }
+    .cs-variant-pill-selected {
+      background: #0071e3 !important;
+      color: #ffffff !important;
+    }
+    .cs-variant-pill-selected:hover { background: #0077ed !important; }
+    .cs-variant-type  { font-size: 13px; font-weight: 600; }
+    .cs-variant-sep   { font-size: 11px; opacity: 0.5; }
+    .cs-variant-price { font-size: 12px; }
+    .cs-variant-pill-selected .cs-variant-sep { opacity: 0.65; }
+
+    /* ── Qty stepper (dark-themed) ────────────────────────────────── */
+    .cs-qty-wrap {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.07);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .cs-qty-btn {
+      width: 40px; height: 44px;
+      background: none; border: none;
+      font-size: 20px; line-height: 1;
+      cursor: pointer;
+      color: rgba(255,255,255,0.75);
+      transition: color 0.12s;
+    }
+    .cs-qty-btn:hover { color: #ffffff; }
+    #qtyInput {
+      width: 44px; height: 44px;
+      background: none; border: none;
+      text-align: center;
+      font-size: 15px; font-weight: 500;
+      color: #ffffff;
+      -moz-appearance: textfield;
+    }
     #qtyInput::-webkit-outer-spin-button,
     #qtyInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   </style>
@@ -107,22 +138,30 @@
              th:if="${product.configuration != null and !#strings.isEmpty(product.configuration)}"
              th:text="${product.configuration}">12 boxes per case</p>
 
-          <!-- ── VARIANT SELECTOR (when variants exist) ── -->
+          <!-- ── BUY BOX (when variants exist) ── -->
           <div th:if="${not #lists.isEmpty(product.variants)}">
 
-            <!-- Variant cards -->
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;" id="variantSelector">
+            <!-- Visual separator between product header and buy section -->
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.09);margin:18px 0 16px;">
+
+            <!-- Format label -->
+            <p style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+                      color:rgba(255,255,255,0.38);margin:0 0 8px 1px;">Format</p>
+
+            <!-- Pill toggles -->
+            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;" id="variantSelector">
               <button th:each="v, stat : ${product.variants}"
                       th:if="${v.isActive}"
                       type="button"
-                      class="cs-variant-card"
-                      th:classappend="${stat.first} ? ' cs-variant-card-selected'"
+                      class="cs-variant-pill"
+                      th:classappend="${stat.first} ? ' cs-variant-pill-selected'"
                       th:attr="data-variant-id=${v.id},
                                data-price=${v.price},
                                data-sale-price=${v.salePrice != null ? v.salePrice : ''},
                                data-stock=${variantStock != null and variantStock[v.id] != null ? variantStock[v.id] : 0}"
                       th:aria-label="${v.variantType}">
                 <span class="cs-variant-type" th:text="${v.variantType}">Box</span>
+                <span class="cs-variant-sep">·</span>
                 <span class="cs-variant-price">
                   <th:block th:if="${v.salePrice != null}">
                     <span style="text-decoration:line-through;opacity:0.5;font-size:11px;"
@@ -136,38 +175,31 @@
               </button>
             </div>
 
-            <!-- Dynamic price display -->
-            <div class="cs-pd-price-wrap" id="variantPriceDisplay" style="margin-bottom:12px;">
-              <!-- filled by JS -->
+            <!-- Large price (JS-filled) + stock status — tight vertical group -->
+            <div class="cs-pd-price-wrap" id="variantPriceDisplay" style="margin-bottom:4px;">
+              <!-- filled by product-variant.js -->
             </div>
+            <div id="variantStockStatus" style="font-size:13px;margin-bottom:18px;"></div>
 
-            <!-- Stock status -->
-            <div id="variantStockStatus" style="margin-bottom:16px;font-size:14px;"></div>
-
-            <!-- Quantity + Add to Cart -->
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
-              <div style="display:flex;align-items:center;border:1px solid #d2d2d7;border-radius:8px;overflow:hidden;">
-                <button type="button" id="qtyMinus"
-                        style="width:40px;height:44px;background:none;border:none;font-size:20px;cursor:pointer;">&#8722;</button>
-                <input type="number" id="qtyInput" value="1" min="1"
-                       style="width:48px;height:44px;border:none;text-align:center;font-size:16px;font-weight:500;-moz-appearance:textfield;">
-                <button type="button" id="qtyPlus"
-                        style="width:40px;height:44px;background:none;border:none;font-size:20px;cursor:pointer;">+</button>
+            <!-- Quantity stepper + Add to Cart -->
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+              <div class="cs-qty-wrap">
+                <button type="button" id="qtyMinus" class="cs-qty-btn">&#8722;</button>
+                <input type="number" id="qtyInput" value="1" min="1">
+                <button type="button" id="qtyPlus"  class="cs-qty-btn">+</button>
               </div>
               <button type="button" id="addToCartBtn"
                       class="cs-btn-pill cs-btn-pill-blue"
-                      style="flex:1;"
-                      disabled>
+                      style="flex:1;" disabled>
                 Add to Cart
               </button>
             </div>
 
             <!-- Secondary inquiry link -->
-            <div style="margin-top:4px;">
-              <a href="#inquirySection" style="font-size:13px;color:#6e6e73;text-decoration:none;">
-                Have questions? Inquire about this product &#8594;
-              </a>
-            </div>
+            <a href="#inquirySection"
+               style="font-size:13px;color:rgba(255,255,255,0.38);text-decoration:none;">
+              Have questions? Inquire about this product &#8594;
+            </a>
 
           </div>
 

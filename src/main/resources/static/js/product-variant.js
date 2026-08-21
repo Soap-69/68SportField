@@ -1,7 +1,7 @@
 'use strict';
 (function () {
 
-  var cards = document.querySelectorAll('.cs-variant-card');
+  var cards = document.querySelectorAll('.cs-variant-pill');
   var priceDisplay = document.getElementById('variantPriceDisplay');
   var stockStatus  = document.getElementById('variantStockStatus');
   var addBtn       = document.getElementById('addToCartBtn');
@@ -50,8 +50,8 @@
   }
 
   function selectCard(card) {
-    cards.forEach(function(c) { c.classList.remove('cs-variant-card-selected'); });
-    card.classList.add('cs-variant-card-selected');
+    cards.forEach(function(c) { c.classList.remove('cs-variant-pill-selected'); });
+    card.classList.add('cs-variant-pill-selected');
     selectedVariantId = card.dataset.variantId;
     renderPrice(card);
     renderStock(card);
@@ -82,12 +82,7 @@
     addBtn.disabled = true;
     addBtn.textContent = 'Adding\u2026';
 
-    fetch('/api/cart/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variantId: parseInt(selectedVariantId), quantity: qty })
-    })
-    .then(function(r) { return r.json(); })
+    window.csrfPost('/api/cart/add', { variantId: parseInt(selectedVariantId), quantity: qty })
     .then(function(data) {
       if (data.success) {
         addBtn.textContent = 'Added!';

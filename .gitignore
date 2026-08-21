@@ -41,3 +41,4 @@ uploads/
 test-uploads/
 *.log
 logs/
+.claude/

@@ -20,6 +20,10 @@
   <link rel="stylesheet" th:href="@{/css/public.css}">
   <link rel="stylesheet" th:href="@{/css/custom.css}">
 
+  <!-- CSRF meta tags — read by window.csrfPost for AJAX cart requests -->
+  <meta name="_csrf"        th:if="${_csrf != null}" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+
   <th:block layout:fragment="head"></th:block>
 </head>
 <body class="cs-page-body">
@@ -394,6 +398,21 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Global CSRF-aware POST helper — all AJAX cart/API calls must use this -->
+<script>
+window.csrfPost = function(url, data) {
+  var token  = document.querySelector('meta[name="_csrf"]')  ? document.querySelector('meta[name="_csrf"]').content  : null;
+  var header = document.querySelector('meta[name="_csrf_header"]') ? document.querySelector('meta[name="_csrf_header"]').content : 'X-CSRF-TOKEN';
+  var headers = { 'Content-Type': 'application/json' };
+  if (token) headers[header] = token;
+  return fetch(url, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); });
+};
+</script>
 
 <!-- Navigation JS -->
 <script>
