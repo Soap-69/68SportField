@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!--
+  Shared address display fragment.
+
+  Usage (insert inside an existing wrapper element, e.g. <p>):
+    <p th:insert="~{fragments/address-line :: addressOneLine(
+        ${addr.addressLine1}, ${addr.addressLine2},
+        ${addr.city}, ${addr.state}, ${addr.zipCode})}"></p>
+
+  Output examples:
+    "123 Main St, Apt 4B, Boston, MA 02135"   (when addressLine2 is present)
+    "123 Main St, Boston, MA 02135"            (when addressLine2 is null or blank)
+
+  The apt/unit segment and its preceding comma are omitted when the field is
+  null or blank, preventing the "123 Main St , , Boston" double-comma artifact.
+-->
+<span th:fragment="addressOneLine(line1, line2, city, state, zip)"
+      th:text="${line1
+               + (#strings.isEmpty(line2) ? '' : ', ' + line2)
+               + ', ' + city + ', ' + state + ' ' + zip}">
+</span>
+
+</body>
+</html>

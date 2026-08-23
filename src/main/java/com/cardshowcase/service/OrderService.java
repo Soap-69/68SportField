@@ -75,9 +75,10 @@ public class OrderService {
 
         Long customerId = principal != null ? principal.getId() : null;
 
-        // Resolve the guest cart token early — needed for idempotency identity verification
-        // and stored on the order so future replays from the same session can be authenticated.
+        // Resolve and immediately hash the guest cart token. The raw cookie value is
+        // never stored; only the SHA-256 digest is persisted and used for identity checks.
         String cartToken = customerId == null ? cartService.getCartCookie(httpReq) : null;
+        String cartTokenHash = cartToken != null ? sha256Hex(cartToken) : null;
 
         // 1. Idempotency check — FIRST, before input validation and empty-cart guard
         Optional<Order> existing = orderRepository.findByIdempotencyKey(req.getIdempotencyKey());
@@ -85,7 +86,7 @@ public class OrderService {
             Order prev = existing.get();
 
             // Verify the replay comes from the same identity — prevents cross-account/session leakage
-            verifyIdempotencyIdentity(prev, customerId, cartToken, req.getIdempotencyKey());
+            verifyIdempotencyIdentity(prev, customerId, cartTokenHash, req.getIdempotencyKey());
 
             // Resolve cart to detect a conflict (may already be empty on genuine retry)
             List<CartItem> currentItems = cartService.findExistingCart(httpReq, customerId)
@@ -169,7 +170,7 @@ public class OrderService {
                 .idempotencyKey(req.getIdempotencyKey())
                 .requestFingerprint(fingerprint)
                 .customer(customerId != null ? em.getReference(Customer.class, customerId) : null)
-                .guestCartToken(cartToken)
+                .guestCartTokenHash(cartTokenHash)
                 .status(OrderStatus.PENDING_PAYMENT)
                 .guestName(customerId == null ? req.getGuestName() : null)
                 .guestEmail(customerId == null ? req.getGuestEmail() : null)
@@ -281,9 +282,10 @@ public class OrderService {
                                                     CustomerPrincipal principal) {
         Long customerId = principal != null ? principal.getId() : null;
         String cartToken = customerId == null ? cartService.getCartCookie(httpReq) : null;
+        String cartTokenHash = cartToken != null ? sha256Hex(cartToken) : null;
         return orderRepository.findByIdempotencyKey(idempotencyKey).filter(order -> {
             try {
-                verifyIdempotencyIdentity(order, customerId, cartToken, idempotencyKey);
+                verifyIdempotencyIdentity(order, customerId, cartTokenHash, idempotencyKey);
                 return true;
             } catch (IdempotencyConflictException e) {
                 return false;
@@ -299,12 +301,15 @@ public class OrderService {
      *
      * <ul>
      *   <li>Authenticated: order's {@code customer_id} must equal the current {@code customerId}.</li>
-     *   <li>Guest: order's {@code guestCartToken} must equal the current cart-cookie token.
-     *       Identity is tied to the session token, NOT to {@code guestEmail}, because two
-     *       different guests may share an email address.</li>
+     *   <li>Guest: the SHA-256 hash of the current cart-cookie token must match the stored
+     *       {@code guest_cart_token_hash}. Identity is tied to the session token, NOT to
+     *       {@code guestEmail}, because two different guests may share an email address.</li>
      * </ul>
+     *
+     * @param cartTokenHash SHA-256 hex digest of the current request's cart cookie
+     *                      (null for authenticated callers)
      */
-    private void verifyIdempotencyIdentity(Order existing, Long customerId, String cartToken,
+    private void verifyIdempotencyIdentity(Order existing, Long customerId, String cartTokenHash,
                                             String key) {
         if (customerId != null) {
             // Authenticated caller: order must belong to this customer
@@ -314,8 +319,8 @@ public class OrderService {
                         "Idempotency key '" + key + "' was already used by a different account.");
             }
         } else {
-            // Guest caller: order must have been created by the same cart session
-            if (!Objects.equals(existing.getGuestCartToken(), cartToken)) {
+            // Guest caller: compare hashes — raw token is never stored or compared directly
+            if (!Objects.equals(existing.getGuestCartTokenHash(), cartTokenHash)) {
                 throw new IdempotencyConflictException(
                         "Idempotency key '" + key + "' was already used by a different session.");
             }
@@ -379,10 +384,32 @@ public class OrderService {
 
     // ── Helpers ───────────────────────────────────────────────────────
 
+    /**
+     * Generates a human-readable order number with high collision resistance.
+     *
+     * Format: {@code ORD-YYYYMMDD-XXXXXXXX} where the suffix is 8 base-36 characters
+     * (digits 0–9 and uppercase A–Z), giving ~2.8 trillion possible values per day.
+     * This replaces the prior 6-digit decimal suffix (~1 million/day) which was
+     * statistically likely to collide at moderate order volumes.
+     *
+     * The {@code order_number} column has a UNIQUE constraint, so any improbable
+     * collision causes a retry via the normal idempotency flow.
+     */
     private String generateOrderNumber() {
         String date   = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String suffix = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
+        String suffix = randomBase36(8);
         return "ORD-" + date + "-" + suffix;
+    }
+
+    /** Returns a random uppercase base-36 string of the given length. */
+    private static String randomBase36(int length) {
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            int n = rng.nextInt(36);
+            sb.append(n < 10 ? (char) ('0' + n) : (char) ('A' + n - 10));
+        }
+        return sb.toString();
     }
 
     /**

@@ -70,8 +70,16 @@ public class CheckoutApiController {
                     .body(Map.of("error", e.getMessage()));
 
         } catch (DataIntegrityViolationException e) {
-            // Near-simultaneous duplicate: the UNIQUE constraint on idempotency_key fired.
-            // Resolve the order created by the winning thread (with identity check).
+            // Only attempt idempotency recovery when the failure is specifically the
+            // idempotency_key UNIQUE constraint — i.e., a near-simultaneous duplicate.
+            // Any other integrity failure (FK violation, NOT NULL, etc.) must not be
+            // disguised as a concurrent checkout conflict and must surface as a 500.
+            String dbMsg = e.getMostSpecificCause().getMessage();
+            if (dbMsg == null || !dbMsg.toLowerCase().contains("idempotency_key")) {
+                log.error("Data integrity violation during checkout (not idempotency_key constraint)", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Checkout failed. Please try again."));
+            }
             log.warn("Concurrent idempotency key conflict for key={}; resolving winner",
                     req.getIdempotencyKey());
             return orderService.findForIdempotentReplay(req.getIdempotencyKey(), httpReq, principal)

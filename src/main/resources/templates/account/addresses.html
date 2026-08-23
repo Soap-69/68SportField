@@ -68,7 +68,7 @@
                    th:text="${addr.company}"></p>
                 <p style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
                    th:text="${addr.addressLine1}"></p>
-                <p th:if="${addr.addressLine2}" style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
+                <p th:if="${!#strings.isEmpty(addr.addressLine2)}" style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
                    th:text="${addr.addressLine2}"></p>
                 <p style="margin:0 0 2px;font-size:13px;color:rgba(255,255,255,0.7);"
                    th:text="${addr.city + ', ' + addr.state + ' ' + addr.zipCode}"></p>

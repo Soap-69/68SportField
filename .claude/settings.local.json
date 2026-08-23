@@ -37,7 +37,8 @@
       "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw test -pl . -Dtest=\"CheckoutIntegrationTest,SmokeTest\")",
       "Read(//c/ProgramData/scoop/apps/openjdk/current/**)",
       "Bash(ls /c/Users/18572/scoop/apps/openjdk*/current/bin/)",
-      "Bash(java -version)"
+      "Bash(java -version)",
+      "Bash(export JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-21.0.7.6-hotspot\")"
     ]
   }
 }

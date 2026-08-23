@@ -140,9 +140,9 @@
               <address style="font-style:normal;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.7;">
                 <span th:text="${order.shippingFirstName + ' ' + order.shippingLastName}"></span><br>
                 <span th:text="${order.shippingAddressLine1}"></span><br>
-                <span th:if="${order.shippingAddressLine2}"
+                <span th:if="${!#strings.isEmpty(order.shippingAddressLine2)}"
                       th:text="${order.shippingAddressLine2}"></span>
-                <br th:if="${order.shippingAddressLine2}">
+                <br th:if="${!#strings.isEmpty(order.shippingAddressLine2)}">
                 <span th:text="${order.shippingCity + ', ' + order.shippingState + ' ' + order.shippingZip}"></span><br>
                 <span th:if="${order.shippingPhone}" th:text="${order.shippingPhone}"></span>
               </address>
@@ -157,9 +157,9 @@
               <address style="font-style:normal;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.7;">
                 <span th:text="${order.billingFirstName + ' ' + order.billingLastName}"></span><br>
                 <span th:text="${order.billingAddressLine1}"></span><br>
-                <span th:if="${order.billingAddressLine2}"
+                <span th:if="${!#strings.isEmpty(order.billingAddressLine2)}"
                       th:text="${order.billingAddressLine2}"></span>
-                <br th:if="${order.billingAddressLine2}">
+                <br th:if="${!#strings.isEmpty(order.billingAddressLine2)}">
                 <span th:text="${order.billingCity + ', ' + order.billingState + ' ' + order.billingZip}"></span><br>
                 <span th:if="${order.billingPhone}" th:text="${order.billingPhone}"></span>
               </address>
