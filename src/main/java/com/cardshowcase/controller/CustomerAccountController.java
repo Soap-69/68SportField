@@ -4,8 +4,10 @@ import com.cardshowcase.model.dto.AddressDTO;
 import com.cardshowcase.model.dto.ProfileUpdateDTO;
 import com.cardshowcase.model.entity.Customer;
 import com.cardshowcase.model.entity.CustomerAddress;
+import com.cardshowcase.model.entity.Order;
 import com.cardshowcase.service.CustomerAddressService;
 import com.cardshowcase.service.CustomerAuthService;
+import com.cardshowcase.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -23,6 +25,7 @@ public class CustomerAccountController {
 
     private final CustomerAuthService customerAuthService;
     private final CustomerAddressService addressService;
+    private final OrderService orderService;
 
     // ── Dashboard ────────────────────────────────────────────────
 
@@ -167,11 +170,32 @@ public class CustomerAccountController {
         }
     }
 
-    // ── Orders placeholder ────────────────────────────────────────
+    // ── Orders ───────────────────────────────────────────────────
 
     @GetMapping("/orders")
-    public String ordersPage() {
+    public String ordersPage(Model model) {
+        Customer customer = customerAuthService.getCurrentCustomer();
+        List<Order> orders = orderService.findOrdersByCustomerId(customer.getId());
+        model.addAttribute("orders", orders);
         return "account/orders";
+    }
+
+    @GetMapping("/orders/{id}")
+    public String orderDetailPage(@PathVariable Long id,
+                                  Model model,
+                                  RedirectAttributes redirectAttributes) {
+        Customer customer = customerAuthService.getCurrentCustomer();
+        try {
+            Order order = orderService.findByIdForCustomer(id, customer.getId());
+            model.addAttribute("order", order);
+            return "account/order-detail";
+        } catch (SecurityException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "You do not have access to that order.");
+            return "redirect:/account/orders";
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Order not found.");
+            return "redirect:/account/orders";
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────

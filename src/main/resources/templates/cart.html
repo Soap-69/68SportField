@@ -29,7 +29,7 @@
     </div>
 
     <!-- Cart content -->
-    <div th:unless="${#lists.isEmpty(items)}" style="display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start;">
+    <div th:unless="${#lists.isEmpty(items)}" class="cs-cart-grid">
 
       <!-- Items list -->
       <div id="cartItemsList">
@@ -99,7 +99,7 @@
       </div>
 
       <!-- Summary -->
-      <div style="background:#f5f5f7;border-radius:16px;padding:24px;position:sticky;top:100px;">
+      <div class="cs-cart-summary" style="background:#f5f5f7;border-radius:16px;padding:24px;">
         <h2 style="font-size:18px;font-weight:700;margin-bottom:20px;">Order Summary</h2>
         <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:15px;">
           <span>Subtotal</span>

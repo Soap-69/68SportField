@@ -2,7 +2,7 @@ package com.cardshowcase.service;
 
 import com.cardshowcase.model.dto.RegisterDTO;
 import com.cardshowcase.model.entity.Customer;
-import com.cardshowcase.repository.CustomerRepository;
+import com.cardshowcase.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,11 +20,13 @@ import static org.assertj.core.api.Assertions.*;
 @ActiveProfiles("test")
 class CustomerAuthServiceTest {
 
-    @Autowired
-    private CustomerAuthService customerAuthService;
-
-    @Autowired
-    private CustomerRepository customerRepository;
+    @Autowired private CustomerAuthService customerAuthService;
+    @Autowired private CustomerRepository customerRepository;
+    @Autowired private OrderItemRepository orderItemRepository;
+    @Autowired private OrderRepository orderRepository;
+    @Autowired private CartItemRepository cartItemRepository;
+    @Autowired private CartRepository cartRepository;
+    @Autowired private CustomerAddressRepository addressRepository;
 
     private RegisterDTO validDto() {
         RegisterDTO dto = new RegisterDTO();
@@ -39,6 +41,12 @@ class CustomerAuthServiceTest {
 
     @BeforeEach
     void cleanUp() {
+        // Delete in FK dependency order so customer deleteAll doesn't hit referential constraints
+        orderItemRepository.deleteAll();
+        orderRepository.deleteAll();
+        cartItemRepository.deleteAll();
+        cartRepository.deleteAll();
+        addressRepository.deleteAll();
         customerRepository.deleteAll();
     }
 

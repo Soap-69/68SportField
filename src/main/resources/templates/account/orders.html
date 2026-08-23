@@ -14,23 +14,79 @@
 
       <h1 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 32px;">My Account</h1>
 
-      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
+      <div class="cs-account-layout">
 
         <!-- Sidebar -->
         <div th:replace="~{fragments/account-nav :: accountNav('orders')}"></div>
 
         <!-- Content -->
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:56px 32px;text-align:center;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px;">
-            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-            <rect x="9" y="3" width="6" height="4" rx="2"/>
-          </svg>
-          <p style="font-size:16px;font-weight:500;color:rgba(255,255,255,0.6);margin:0 0 8px;">No orders yet</p>
-          <p style="font-size:14px;color:rgba(255,255,255,0.35);margin:0 0 24px;">Your order history will appear here once you place your first order.</p>
-          <a th:href="@{/}"
-             style="background:#0071e3;color:#ffffff;text-decoration:none;border-radius:22px;padding:11px 24px;font-size:14px;font-weight:600;">
-            Start Shopping
-          </a>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:32px;">
+
+          <!-- Error flash (e.g. redirected from order detail with 403/404) -->
+          <div th:if="${errorMessage}"
+               style="background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.3);
+                      border-radius:10px;padding:12px 16px;margin-bottom:20px;
+                      color:#ff6b60;font-size:14px;"
+               th:text="${errorMessage}"></div>
+
+          <!-- Empty state -->
+          <div th:if="${#lists.isEmpty(orders)}"
+               style="text-align:center;padding:40px 0;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px;">
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="2"/>
+            </svg>
+            <p style="font-size:16px;font-weight:500;color:rgba(255,255,255,0.6);margin:0 0 8px;">No orders yet</p>
+            <p style="font-size:14px;color:rgba(255,255,255,0.35);margin:0 0 24px;">Your order history will appear here once you place your first order.</p>
+            <a th:href="@{/}"
+               style="background:#0071e3;color:#ffffff;text-decoration:none;border-radius:22px;padding:11px 24px;font-size:14px;font-weight:600;">
+              Start Shopping
+            </a>
+          </div>
+
+          <!-- Orders table -->
+          <div th:if="${!#lists.isEmpty(orders)}" style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                  <th style="text-align:left;padding:10px 12px;font-weight:600;color:rgba(255,255,255,0.5);font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Order #</th>
+                  <th style="text-align:left;padding:10px 12px;font-weight:600;color:rgba(255,255,255,0.5);font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Date</th>
+                  <th style="text-align:left;padding:10px 12px;font-weight:600;color:rgba(255,255,255,0.5);font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Status</th>
+                  <th style="text-align:right;padding:10px 12px;font-weight:600;color:rgba(255,255,255,0.5);font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:each="order : ${orders}"
+                    style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <td style="padding:14px 12px;">
+                    <a th:href="@{/account/orders/{id}(id=${order.id})}"
+                       style="font-family:monospace;font-weight:600;color:#ffffff;text-decoration:none;"
+                       onmouseover="this.style.textDecoration='underline'"
+                       onmouseout="this.style.textDecoration='none'"
+                       th:text="${order.orderNumber}">ORD-20260821-000001</a>
+                  </td>
+                  <td style="padding:14px 12px;color:rgba(255,255,255,0.55);"
+                      th:text="${#temporals.format(order.createdAt,'MMM d, yyyy')}">Aug 21, 2026</td>
+                  <td style="padding:14px 12px;">
+                    <span th:switch="${order.status.name()}">
+                      <span th:case="'PENDING_PAYMENT'" style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(255,204,0,0.15);color:#ffd60a;">Pending Payment</span>
+                      <span th:case="'PAID'"            style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(52,199,89,0.15);color:#34c759;">Paid</span>
+                      <span th:case="'PROCESSING'"      style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(0,113,227,0.2);color:#64b5f6;">Processing</span>
+                      <span th:case="'SHIPPED'"         style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(0,113,227,0.2);color:#64b5f6;">Shipped</span>
+                      <span th:case="'DELIVERED'"       style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(52,199,89,0.15);color:#34c759;">Delivered</span>
+                      <span th:case="'COMPLETED'"       style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(52,199,89,0.15);color:#34c759;">Completed</span>
+                      <span th:case="'CANCELLED'"       style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(255,59,48,0.15);color:#ff3b30;">Cancelled</span>
+                      <span th:case="'REFUNDED'"        style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(142,142,147,0.2);color:#aeaeb2;">Refunded</span>
+                      <span th:case="*"                 style="padding:3px 10px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(142,142,147,0.2);color:#aeaeb2;" th:text="${order.status.name()}">Unknown</span>
+                    </span>
+                  </td>
+                  <td style="padding:14px 12px;text-align:right;font-weight:600;color:#ffffff;"
+                      th:text="${'$' + #numbers.formatDecimal(order.total, 1, 2)}">$0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
 
       </div>

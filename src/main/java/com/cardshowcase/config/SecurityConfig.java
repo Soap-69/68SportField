@@ -75,8 +75,9 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests(auth -> auth
 
-                // Customer account area — requires ROLE_CUSTOMER
+                // Customer account area and order API — requires ROLE_CUSTOMER
                 .requestMatchers("/account/**").hasRole("CUSTOMER")
+                .requestMatchers("/api/orders/**").hasRole("CUSTOMER")
 
                 // Customer auth pages and public storefront — open
                 .requestMatchers(

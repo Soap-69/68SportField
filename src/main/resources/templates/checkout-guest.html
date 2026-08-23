@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}" lang="en">
+<head><title>Guest Checkout — 68 Sport Field</title></head>
+<body>
+<div layout:fragment="content">
+<section class="cs-section-light cs-section" style="min-height:70vh;">
+  <div class="cs-container" style="max-width:640px;padding-top:48px;padding-bottom:72px;">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:6px;">Guest Checkout</h1>
+    <p style="color:#6e6e73;margin-bottom:36px;">
+      No account needed.
+      <a th:href="@{/login(redirect='/checkout')}" style="color:#0071e3;text-decoration:none;">Sign in</a>
+      for faster future checkouts.
+    </p>
+
+    <!-- ── Error / Success banners ───────────────────────────── -->
+    <div id="errorBanner"
+         style="display:none;background:#fff0f0;border:1px solid #ffcdd2;border-radius:10px;
+                padding:14px 18px;margin-bottom:24px;color:#b71c1c;font-size:15px;"></div>
+    <div id="successBanner"
+         style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;
+                padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="font-size:1.1rem;font-weight:600;color:#166534;margin:0 0 6px;">Order placed!</p>
+      <p id="successOrderNum" style="font-family:monospace;font-size:1rem;color:#15803d;margin:0 0 16px;"></p>
+      <p style="font-size:14px;color:#4b7a58;margin:0 0 20px;">
+        We'll send a confirmation to <span id="successEmail" style="font-weight:600;"></span>.
+      </p>
+      <a th:href="@{/}" class="cs-btn-pill cs-btn-pill-blue"
+         style="display:inline-flex;align-items:center;justify-content:center;">Continue Shopping</a>
+    </div>
+
+    <!-- ── Checkout form ─────────────────────────────────────── -->
+    <form id="guestCheckoutForm" style="display:block;">
+      <input type="hidden" id="idempotencyKey">
+
+      <!-- Contact -->
+      <fieldset style="border:none;padding:0;margin:0 0 28px;">
+        <legend style="font-size:1rem;font-weight:600;color:#1d1d1f;margin-bottom:16px;display:block;">
+          Contact
+        </legend>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+              First Name *
+            </label>
+            <input id="firstName" type="text" required autocomplete="given-name"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                          padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+              Last Name *
+            </label>
+            <input id="lastName" type="text" required autocomplete="family-name"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                          padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+            Email Address *
+          </label>
+          <input id="guestEmail" type="email" required autocomplete="email"
+                 style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                        padding:10px 12px;font-size:15px;outline:none;">
+        </div>
+      </fieldset>
+
+      <!-- Shipping address -->
+      <fieldset style="border:none;padding:0;margin:0 0 28px;">
+        <legend style="font-size:1rem;font-weight:600;color:#1d1d1f;margin-bottom:16px;display:block;">
+          Shipping Address
+        </legend>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+            Address Line 1 *
+          </label>
+          <input id="shipLine1" type="text" required autocomplete="shipping address-line1"
+                 style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                        padding:10px 12px;font-size:15px;outline:none;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+            Address Line 2
+          </label>
+          <input id="shipLine2" type="text" autocomplete="shipping address-line2"
+                 style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                        padding:10px 12px;font-size:15px;outline:none;">
+        </div>
+        <div class="cs-city-state-zip" style="margin-bottom:12px;">
+          <div>
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+              City *
+            </label>
+            <input id="shipCity" type="text" required autocomplete="shipping locality"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                          padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+              State *
+            </label>
+            <input id="shipState" type="text" required autocomplete="shipping region"
+                   placeholder="MA"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                          padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+              ZIP *
+            </label>
+            <input id="shipZip" type="text" required autocomplete="shipping postal-code"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                          padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">
+            Phone
+          </label>
+          <input id="shipPhone" type="tel" autocomplete="shipping tel"
+                 style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
+                        padding:10px 12px;font-size:15px;outline:none;">
+        </div>
+      </fieldset>
+
+      <!-- Billing -->
+      <fieldset style="border:none;padding:0;margin:0 0 36px;">
+        <legend style="font-size:1rem;font-weight:600;color:#1d1d1f;margin-bottom:12px;display:block;">
+          Billing Address
+        </legend>
+        <label style="display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer;margin-bottom:16px;">
+          <input type="checkbox" id="sameBilling" checked
+                 style="width:16px;height:16px;accent-color:#0071e3;cursor:pointer;">
+          Same as shipping address
+        </label>
+        <div id="billingFields" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">First Name *</label>
+              <input id="billFirst" type="text" autocomplete="billing given-name"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Last Name *</label>
+              <input id="billLast" type="text" autocomplete="billing family-name"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Address Line 1 *</label>
+            <input id="billLine1" type="text" autocomplete="billing address-line1"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Address Line 2</label>
+            <input id="billLine2" type="text" autocomplete="billing address-line2"
+                   style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+          </div>
+          <div class="cs-city-state-zip">
+            <div>
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">City *</label>
+              <input id="billCity" type="text" autocomplete="billing locality"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">State *</label>
+              <input id="billState" type="text" autocomplete="billing region" placeholder="MA"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">ZIP *</label>
+              <input id="billZip" type="text" autocomplete="billing postal-code"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Submit -->
+      <button type="submit" id="placeOrderBtn" class="cs-btn-pill cs-btn-pill-blue"
+              style="width:100%;display:flex;align-items:center;justify-content:center;
+                     font-size:17px;font-weight:600;padding:14px;">
+        Place Order
+      </button>
+      <p style="font-size:13px;color:#6e6e73;text-align:center;margin-top:12px;">
+        No payment is collected yet. You'll be contacted to complete your purchase.
+      </p>
+    </form>
+
+  </div>
+</section>
+
+<script th:inline="none">
+(function () {
+  'use strict';
+
+  // Generate a per-page-load idempotency key so double-clicks and browser retries are safe
+  var idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+  document.getElementById('idempotencyKey').value = idemKey;
+
+  // Toggle billing address section
+  var sameBilling    = document.getElementById('sameBilling');
+  var billingFields  = document.getElementById('billingFields');
+  sameBilling.addEventListener('change', function () {
+    billingFields.style.display = this.checked ? 'none' : 'block';
+  });
+
+  // Form submission
+  document.getElementById('guestCheckoutForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var btn        = document.getElementById('placeOrderBtn');
+    var errBanner  = document.getElementById('errorBanner');
+    var okBanner   = document.getElementById('successBanner');
+    errBanner.style.display = 'none';
+
+    var firstName = document.getElementById('firstName').value.trim();
+    var lastName  = document.getElementById('lastName').value.trim();
+    var same      = sameBilling.checked;
+
+    var payload = {
+      idempotencyKey:       document.getElementById('idempotencyKey').value,
+      guestName:            firstName + ' ' + lastName,
+      guestEmail:           document.getElementById('guestEmail').value.trim(),
+      shippingFirstName:    firstName,
+      shippingLastName:     lastName,
+      shippingAddressLine1: document.getElementById('shipLine1').value.trim(),
+      shippingAddressLine2: document.getElementById('shipLine2').value.trim(),
+      shippingCity:         document.getElementById('shipCity').value.trim(),
+      shippingState:        document.getElementById('shipState').value.trim(),
+      shippingZip:          document.getElementById('shipZip').value.trim(),
+      shippingCountry:      'US',
+      shippingPhone:        document.getElementById('shipPhone').value.trim(),
+      billingSameAsShipping: same,
+      billingFirstName:    same ? firstName : document.getElementById('billFirst').value.trim(),
+      billingLastName:     same ? lastName  : document.getElementById('billLast').value.trim(),
+      billingAddressLine1: same ? document.getElementById('shipLine1').value.trim()
+                                : document.getElementById('billLine1').value.trim(),
+      billingAddressLine2: same ? document.getElementById('shipLine2').value.trim()
+                                : document.getElementById('billLine2').value.trim(),
+      billingCity:  same ? document.getElementById('shipCity').value.trim()
+                         : document.getElementById('billCity').value.trim(),
+      billingState: same ? document.getElementById('shipState').value.trim()
+                         : document.getElementById('billState').value.trim(),
+      billingZip:   same ? document.getElementById('shipZip').value.trim()
+                         : document.getElementById('billZip').value.trim(),
+      billingCountry: 'US'
+    };
+
+    btn.disabled    = true;
+    btn.textContent = 'Placing order\u2026';
+
+    window.csrfPost('/api/checkout', payload)
+      .then(function (data) {
+        if (data.orderNumber) {
+          // Success
+          document.getElementById('guestCheckoutForm').style.display = 'none';
+          document.getElementById('successOrderNum').textContent = data.orderNumber;
+          document.getElementById('successEmail').textContent    = payload.guestEmail;
+          okBanner.style.display = 'block';
+        } else {
+          errBanner.textContent    = data.error || 'Checkout failed. Please try again.';
+          errBanner.style.display  = 'block';
+          btn.disabled    = false;
+          btn.textContent = 'Place Order';
+        }
+      })
+      .catch(function () {
+        errBanner.textContent   = 'Could not connect to the server. Please try again.';
+        errBanner.style.display = 'block';
+        btn.disabled    = false;
+        btn.textContent = 'Place Order';
+      });
+  });
+})();
+</script>
+</div>
+</body>
+</html>

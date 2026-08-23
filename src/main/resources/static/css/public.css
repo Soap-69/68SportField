@@ -1903,3 +1903,55 @@ img  { max-width: 100%; height: auto; }
 
 /* Smooth color transition on all anchor elements */
 a { transition: color 0.2s ease; }
+
+/* ── Responsive layout helpers (cart, checkout, account) ──────── */
+
+/* Cart: two-column grid (items | summary) */
+.cs-cart-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
+  align-items: start;
+}
+.cs-cart-summary { position: sticky; top: 100px; }
+
+/* Auth checkout: two-column grid (form | order summary) */
+.cs-checkout-auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 40px;
+  align-items: start;
+}
+.cs-checkout-summary-panel { position: sticky; top: 24px; }
+
+/* City / State / ZIP three-column sub-grid */
+.cs-city-state-zip {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px;
+  gap: 12px;
+}
+
+/* Account pages: sidebar (220px) + content */
+.cs-account-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Order detail: side-by-side address snapshots */
+.cs-addr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+@media (max-width: 767px) {
+  .cs-cart-grid              { grid-template-columns: 1fr; gap: 0; }
+  .cs-cart-summary           { position: static; margin-top: 28px; }
+  .cs-checkout-auth-grid     { grid-template-columns: 1fr; gap: 28px; }
+  .cs-checkout-summary-panel { position: static; }
+  .cs-city-state-zip         { grid-template-columns: 1fr; }
+  .cs-account-layout         { grid-template-columns: 1fr; gap: 16px; }
+  .cs-addr-grid              { grid-template-columns: 1fr; gap: 24px; }
+}

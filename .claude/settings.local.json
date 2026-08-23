@@ -33,7 +33,8 @@
       "Bash(where psql:*)",
       "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw flyway:info -pl .)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-21\" ./mvnw test -q)",
-      "Bash(reg query:*)"
+      "Bash(reg query:*)",
+      "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw test -pl . -Dtest=\"CheckoutIntegrationTest,SmokeTest\")"
     ]
   }
 }

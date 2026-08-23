@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}" lang="en">
+<head><title>Checkout — 68 Sport Field</title></head>
+<body>
+<div layout:fragment="content">
+<section class="cs-section-light cs-section" style="min-height:70vh;">
+  <div class="cs-container" style="max-width:960px;padding-top:48px;padding-bottom:72px;">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:36px;">Checkout</h1>
+
+    <!-- ── Error / Success banners ───────────────────────────── -->
+    <div id="errorBanner"
+         style="display:none;background:#fff0f0;border:1px solid #ffcdd2;border-radius:10px;
+                padding:14px 18px;margin-bottom:24px;color:#b71c1c;font-size:15px;"></div>
+    <div id="successBanner"
+         style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;
+                padding:32px;margin-bottom:24px;text-align:center;">
+      <p style="font-size:1.1rem;font-weight:600;color:#166534;margin:0 0 6px;">Order placed!</p>
+      <p id="successOrderNum" style="font-family:monospace;font-size:1.1rem;color:#15803d;margin:0 0 16px;"></p>
+      <p style="font-size:14px;color:#4b7a58;margin:0 0 24px;">
+        We'll be in touch to complete your purchase.
+      </p>
+      <a th:href="@{/}" class="cs-btn-pill cs-btn-pill-blue"
+         style="display:inline-flex;align-items:center;justify-content:center;">Continue Shopping</a>
+    </div>
+
+    <!-- ── Two-column layout ─────────────────────────────────── -->
+    <form id="authCheckoutForm" class="cs-checkout-auth-grid">
+      <input type="hidden" id="idempotencyKey">
+
+      <!-- ── LEFT COLUMN ── -->
+      <div>
+
+        <!-- ── Shipping address ─────────────────────────────── -->
+        <fieldset style="border:none;padding:0;margin:0 0 36px;">
+          <legend style="font-size:1rem;font-weight:600;color:#1d1d1f;margin-bottom:16px;display:block;">
+            Shipping Address
+          </legend>
+
+          <!-- Saved addresses -->
+          <div th:if="${not #lists.isEmpty(addresses)}" id="savedShippingCards" style="margin-bottom:16px;">
+            <div th:each="addr, stat : ${addresses}"
+                 style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;
+                        border:1px solid #d2d2d7;border-radius:10px;margin-bottom:10px;cursor:pointer;"
+                 th:onclick="|selectShipping(${addr.id})|"
+                 th:id="|ship-card-${addr.id}|">
+              <input type="radio" name="shipChoice" th:value="${addr.id}"
+                     th:id="|ship-radio-${addr.id}|"
+                     th:checked="${stat.first}"
+                     style="margin-top:3px;accent-color:#0071e3;cursor:pointer;">
+              <div>
+                <p style="margin:0 0 2px;font-size:15px;font-weight:500;">
+                  <span th:text="${addr.firstName}"></span> <span th:text="${addr.lastName}"></span>
+                  <span th:if="${addr.label}" th:text="'— ' + ${addr.label}"
+                        style="font-size:13px;color:#6e6e73;font-weight:400;"></span>
+                </p>
+                <p style="margin:0;font-size:14px;color:#6e6e73;">
+                  <span th:text="${addr.addressLine1}"></span>
+                  <span th:if="${addr.addressLine2}" th:text="', ' + ${addr.addressLine2}"></span>,
+                  <span th:text="${addr.city}"></span>, <span th:text="${addr.state}"></span>
+                  <span th:text="${addr.zipCode}"></span>
+                </p>
+              </div>
+            </div>
+
+            <!-- "Use a new address" option -->
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;
+                        border:1px solid #d2d2d7;border-radius:10px;cursor:pointer;"
+                 id="ship-card-new" onclick="selectShipping('new')">
+              <input type="radio" name="shipChoice" value="new" id="ship-radio-new"
+                     style="accent-color:#0071e3;cursor:pointer;">
+              <span style="font-size:15px;">Use a new address</span>
+            </div>
+          </div>
+
+          <!-- Inline shipping fields (shown when "new" selected, or no saved addresses) -->
+          <div id="newShippingFields"
+               th:style="${#lists.isEmpty(addresses)} ? 'display:block' : 'display:none'">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div>
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">First Name *</label>
+                <input id="shipFirstName" type="text" autocomplete="shipping given-name"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Last Name *</label>
+                <input id="shipLastName" type="text" autocomplete="shipping family-name"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Address Line 1 *</label>
+              <input id="shipLine1" type="text" autocomplete="shipping address-line1"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Address Line 2</label>
+              <input id="shipLine2" type="text" autocomplete="shipping address-line2"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+            <div class="cs-city-state-zip" style="margin-bottom:12px;">
+              <div>
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">City *</label>
+                <input id="shipCity" type="text" autocomplete="shipping locality"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">State *</label>
+                <input id="shipState" type="text" autocomplete="shipping region" placeholder="MA"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">ZIP *</label>
+                <input id="shipZip" type="text" autocomplete="shipping postal-code"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Phone</label>
+              <input id="shipPhone" type="tel" autocomplete="shipping tel"
+                     style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- ── Billing address ──────────────────────────────── -->
+        <fieldset style="border:none;padding:0;margin:0 0 36px;">
+          <legend style="font-size:1rem;font-weight:600;color:#1d1d1f;margin-bottom:12px;display:block;">
+            Billing Address
+          </legend>
+          <label style="display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer;margin-bottom:16px;">
+            <input type="checkbox" id="sameBilling" checked
+                   style="width:16px;height:16px;accent-color:#0071e3;cursor:pointer;">
+            Same as shipping address
+          </label>
+
+          <div id="billingSection" style="display:none;">
+            <!-- Saved billing address options (only shown when saved addresses exist) -->
+            <div th:if="${not #lists.isEmpty(addresses)}" id="savedBillingCards" style="margin-bottom:16px;">
+              <div th:each="addr : ${addresses}"
+                   style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;
+                          border:1px solid #d2d2d7;border-radius:10px;margin-bottom:10px;cursor:pointer;"
+                   th:onclick="|selectBilling(${addr.id})|"
+                   th:id="|bill-card-${addr.id}|">
+                <input type="radio" name="billChoice" th:value="${addr.id}"
+                       th:id="|bill-radio-${addr.id}|"
+                       style="margin-top:3px;accent-color:#0071e3;cursor:pointer;">
+                <div>
+                  <p style="margin:0 0 2px;font-size:15px;font-weight:500;">
+                    <span th:text="${addr.firstName}"></span> <span th:text="${addr.lastName}"></span>
+                    <span th:if="${addr.label}" th:text="'— ' + ${addr.label}"
+                          style="font-size:13px;color:#6e6e73;font-weight:400;"></span>
+                  </p>
+                  <p style="margin:0;font-size:14px;color:#6e6e73;">
+                    <span th:text="${addr.addressLine1}"></span>
+                    <span th:if="${addr.addressLine2}" th:text="', ' + ${addr.addressLine2}"></span>,
+                    <span th:text="${addr.city}"></span>, <span th:text="${addr.state}"></span>
+                    <span th:text="${addr.zipCode}"></span>
+                  </p>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;
+                          border:1px solid #d2d2d7;border-radius:10px;cursor:pointer;"
+                   id="bill-card-new" onclick="selectBilling('new')">
+                <input type="radio" name="billChoice" value="new" id="bill-radio-new"
+                       style="accent-color:#0071e3;cursor:pointer;">
+                <span style="font-size:15px;">Use a new address</span>
+              </div>
+            </div>
+
+            <!-- Inline billing fields -->
+            <div id="newBillingFields"
+                 th:style="${#lists.isEmpty(addresses)} ? 'display:block' : 'display:none'">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div>
+                  <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">First Name *</label>
+                  <input id="billFirstName" type="text" autocomplete="billing given-name"
+                         style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+                </div>
+                <div>
+                  <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Last Name *</label>
+                  <input id="billLastName" type="text" autocomplete="billing family-name"
+                         style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+                </div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Address Line 1 *</label>
+                <input id="billLine1" type="text" autocomplete="billing address-line1"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">Address Line 2</label>
+                <input id="billLine2" type="text" autocomplete="billing address-line2"
+                       style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+              </div>
+              <div class="cs-city-state-zip">
+                <div>
+                  <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">City *</label>
+                  <input id="billCity" type="text" autocomplete="billing locality"
+                         style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+                </div>
+                <div>
+                  <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">State *</label>
+                  <input id="billState" type="text" autocomplete="billing region" placeholder="MA"
+                         style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+                </div>
+                <div>
+                  <label style="font-size:13px;font-weight:500;color:#6e6e73;display:block;margin-bottom:4px;">ZIP *</label>
+                  <input id="billZip" type="text" autocomplete="billing postal-code"
+                         style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;">
+                </div>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- ── Submit ────────────────────────────────────────── -->
+        <button type="submit" id="placeOrderBtn" class="cs-btn-pill cs-btn-pill-blue"
+                style="width:100%;display:flex;align-items:center;justify-content:center;
+                       font-size:17px;font-weight:600;padding:14px;">
+          Place Order
+        </button>
+        <p style="font-size:13px;color:#6e6e73;text-align:center;margin-top:12px;">
+          No payment is collected yet. You'll be contacted to complete your purchase.
+        </p>
+      </div>
+
+      <!-- ── RIGHT COLUMN — Order Summary ──────────────────── -->
+      <div class="cs-checkout-summary-panel" style="background:#f5f5f7;border-radius:16px;padding:28px;">
+        <h2 style="font-size:1rem;font-weight:600;margin:0 0 20px;">Order Summary</h2>
+
+        <!-- Cart items -->
+        <div th:each="item : ${cartItems}"
+             style="display:flex;justify-content:space-between;align-items:flex-start;
+                    margin-bottom:14px;gap:12px;">
+          <div style="flex:1;">
+            <p style="margin:0;font-size:14px;font-weight:500;"
+               th:text="${item.variant.product.name}"></p>
+            <p style="margin:2px 0 0;font-size:13px;color:#6e6e73;"
+               th:text="${item.variant.variantType + ' × ' + item.quantity}"></p>
+          </div>
+          <span style="font-size:14px;font-weight:500;white-space:nowrap;"
+                th:text="${'$' + #numbers.formatDecimal(item.subtotal, 1, 2)}"></span>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #d2d2d7;margin:20px 0;">
+
+        <!-- Totals -->
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:14px;color:#6e6e73;">Subtotal</span>
+          <span style="font-size:14px;"
+                th:text="${'$' + #numbers.formatDecimal(subtotal, 1, 2)}"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:14px;color:#6e6e73;">Shipping</span>
+          <span style="font-size:14px;"
+                th:text="${shippingAmount.signum() == 0 ? 'Free' : '$' + #numbers.formatDecimal(shippingAmount, 1, 2)}"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+          <span style="font-size:14px;color:#6e6e73;">Tax</span>
+          <span style="font-size:14px;"
+                th:text="${'$' + #numbers.formatDecimal(taxAmount, 1, 2)}"></span>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #d2d2d7;margin:0 0 16px;">
+
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:16px;font-weight:600;">Total</span>
+          <span style="font-size:16px;font-weight:600;"
+                th:text="${'$' + #numbers.formatDecimal(orderTotal, 1, 2)}"></span>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</section>
+
+<script th:inline="none">
+(function () {
+  'use strict';
+
+  // Idempotency key
+  var idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+  document.getElementById('idempotencyKey').value = idemKey;
+
+  // ── Address selection helpers ─────────────────────────────────
+
+  function highlightCard(prefix, value) {
+    // Remove highlight from all cards
+    document.querySelectorAll('[id^="' + prefix + '-card-"]').forEach(function (el) {
+      el.style.borderColor = '#d2d2d7';
+      el.style.background  = '';
+    });
+    var card = document.getElementById(prefix + '-card-' + value);
+    if (card) {
+      card.style.borderColor = '#0071e3';
+      card.style.background  = '#f0f6ff';
+    }
+  }
+
+  window.selectShipping = function (value) {
+    var radio = document.getElementById('ship-radio-' + value);
+    if (radio) radio.checked = true;
+    highlightCard('ship', value);
+    var newFields = document.getElementById('newShippingFields');
+    if (newFields) newFields.style.display = (value === 'new') ? 'block' : 'none';
+  };
+
+  window.selectBilling = function (value) {
+    var radio = document.getElementById('bill-radio-' + value);
+    if (radio) radio.checked = true;
+    highlightCard('bill', value);
+    var newFields = document.getElementById('newBillingFields');
+    if (newFields) newFields.style.display = (value === 'new') ? 'block' : 'none';
+  };
+
+  // Highlight the initially-checked shipping card
+  (function () {
+    var checked = document.querySelector('input[name="shipChoice"]:checked');
+    if (checked) highlightCard('ship', checked.value);
+  })();
+
+  // ── Same-as-shipping billing toggle ──────────────────────────
+
+  var sameBilling   = document.getElementById('sameBilling');
+  var billingSection = document.getElementById('billingSection');
+  sameBilling.addEventListener('change', function () {
+    billingSection.style.display = this.checked ? 'none' : 'block';
+  });
+
+  // ── Form submission ───────────────────────────────────────────
+
+  document.getElementById('authCheckoutForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var btn       = document.getElementById('placeOrderBtn');
+    var errBanner = document.getElementById('errorBanner');
+    var okBanner  = document.getElementById('successBanner');
+    errBanner.style.display = 'none';
+
+    var same = sameBilling.checked;
+
+    // Build payload
+    var payload = { idempotencyKey: document.getElementById('idempotencyKey').value };
+
+    // ── Shipping ─────────────────────────────────────────────
+    var shipRadio = document.querySelector('input[name="shipChoice"]:checked');
+    if (shipRadio && shipRadio.value !== 'new') {
+      payload.savedShippingAddressId = parseInt(shipRadio.value, 10);
+    } else {
+      var sf = v => document.getElementById(v) ? document.getElementById(v).value.trim() : '';
+      payload.shippingFirstName    = sf('shipFirstName');
+      payload.shippingLastName     = sf('shipLastName');
+      payload.shippingAddressLine1 = sf('shipLine1');
+      payload.shippingAddressLine2 = sf('shipLine2');
+      payload.shippingCity         = sf('shipCity');
+      payload.shippingState        = sf('shipState');
+      payload.shippingZip          = sf('shipZip');
+      payload.shippingCountry      = 'US';
+      payload.shippingPhone        = sf('shipPhone');
+
+      if (!payload.shippingFirstName || !payload.shippingLastName ||
+          !payload.shippingAddressLine1 || !payload.shippingCity ||
+          !payload.shippingState || !payload.shippingZip) {
+        errBanner.textContent   = 'Please fill in all required shipping address fields.';
+        errBanner.style.display = 'block';
+        return;
+      }
+    }
+
+    // ── Billing ──────────────────────────────────────────────
+    payload.billingSameAsShipping = same;
+    if (same) {
+      // Server will copy shipping → billing
+    } else {
+      var billRadio = document.querySelector('input[name="billChoice"]:checked');
+      if (billRadio && billRadio.value !== 'new') {
+        payload.savedBillingAddressId = parseInt(billRadio.value, 10);
+      } else {
+        var bf = v => document.getElementById(v) ? document.getElementById(v).value.trim() : '';
+        payload.billingFirstName    = bf('billFirstName');
+        payload.billingLastName     = bf('billLastName');
+        payload.billingAddressLine1 = bf('billLine1');
+        payload.billingAddressLine2 = bf('billLine2');
+        payload.billingCity         = bf('billCity');
+        payload.billingState        = bf('billState');
+        payload.billingZip          = bf('billZip');
+        payload.billingCountry      = 'US';
+
+        if (!payload.billingFirstName || !payload.billingLastName ||
+            !payload.billingAddressLine1 || !payload.billingCity ||
+            !payload.billingState || !payload.billingZip) {
+          errBanner.textContent   = 'Please fill in all required billing address fields.';
+          errBanner.style.display = 'block';
+          return;
+        }
+      }
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Placing order\u2026';
+
+    window.csrfPost('/api/checkout', payload)
+      .then(function (data) {
+        if (data.orderNumber) {
+          document.getElementById('authCheckoutForm').style.display = 'none';
+          document.getElementById('successOrderNum').textContent = data.orderNumber;
+          okBanner.style.display = 'block';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          errBanner.textContent   = data.error || 'Checkout failed. Please try again.';
+          errBanner.style.display = 'block';
+          btn.disabled    = false;
+          btn.textContent = 'Place Order';
+        }
+      })
+      .catch(function () {
+        errBanner.textContent   = 'Could not connect to the server. Please try again.';
+        errBanner.style.display = 'block';
+        btn.disabled    = false;
+        btn.textContent = 'Place Order';
+      });
+  });
+})();
+</script>
+</div>
+</body>
+</html>

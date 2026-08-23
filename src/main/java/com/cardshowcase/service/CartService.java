@@ -162,6 +162,18 @@ public class CartService {
         return cartItemRepository.findByCartId(cart.getId());
     }
 
+    // ── Cart Lookup (read-only, no creation) ─────────────────────
+
+    @Transactional(readOnly = true)
+    public Optional<Cart> findExistingCart(HttpServletRequest request, Long customerId) {
+        if (customerId != null) {
+            return cartRepository.findByCustomerId(customerId);
+        }
+        String token = getCartCookie(request);
+        if (token == null) return Optional.empty();
+        return cartRepository.findBySessionToken(token);
+    }
+
     // ── Cart Merge on Login ───────────────────────────────────────
 
     public void mergeGuestCartOnLogin(String sessionToken, Long customerId) {

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="en">
+<head>
+  <title>Order Detail — 68 Sport Field</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+  <section class="cs-section-dark" style="padding:48px 0 64px;">
+    <div class="cs-container">
+
+      <!-- Back link -->
+      <a th:href="@{/account/orders}"
+         style="display:inline-flex;align-items:center;gap:6px;font-size:14px;
+                color:rgba(255,255,255,0.5);text-decoration:none;margin-bottom:28px;">
+        &#8592; Back to Orders
+      </a>
+
+      <h1 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 32px;">My Account</h1>
+
+      <div class="cs-account-layout">
+
+        <!-- Sidebar -->
+        <div th:replace="~{fragments/account-nav :: accountNav('orders')}"></div>
+
+        <!-- Content -->
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+                    border-radius:14px;padding:32px;">
+
+          <!-- ── Order header ───────────────────────────────────── -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                      flex-wrap:wrap;gap:16px;margin-bottom:32px;">
+            <div>
+              <p style="margin:0 0 4px;font-size:13px;color:rgba(255,255,255,0.4);
+                        text-transform:uppercase;letter-spacing:0.05em;">Order Number</p>
+              <p style="margin:0;font-family:monospace;font-size:1.25rem;font-weight:700;color:#ffffff;"
+                 th:text="${order.orderNumber}"></p>
+            </div>
+            <div style="text-align:right;">
+              <p style="margin:0 0 6px;font-size:13px;color:rgba(255,255,255,0.4);"
+                 th:text="${#temporals.format(order.createdAt, 'MMMM d, yyyy')}"></p>
+              <!-- Status badge -->
+              <span th:switch="${order.status.name()}">
+                <span th:case="'PENDING_PAYMENT'" style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(255,204,0,0.15);color:#ffd60a;">Pending Payment</span>
+                <span th:case="'PAID'"            style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(52,199,89,0.15);color:#34c759;">Paid</span>
+                <span th:case="'PROCESSING'"      style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(0,113,227,0.2);color:#64b5f6;">Processing</span>
+                <span th:case="'SHIPPED'"         style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(0,113,227,0.2);color:#64b5f6;">Shipped</span>
+                <span th:case="'DELIVERED'"       style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(52,199,89,0.15);color:#34c759;">Delivered</span>
+                <span th:case="'COMPLETED'"       style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(52,199,89,0.15);color:#34c759;">Completed</span>
+                <span th:case="'CANCELLED'"       style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(255,59,48,0.15);color:#ff3b30;">Cancelled</span>
+                <span th:case="'REFUNDED'"        style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(142,142,147,0.2);color:#aeaeb2;">Refunded</span>
+                <span th:case="*"                 style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(142,142,147,0.2);color:#aeaeb2;" th:text="${order.status.name()}">Unknown</span>
+              </span>
+            </div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0 0 32px;">
+
+          <!-- ── Line items ─────────────────────────────────────── -->
+          <h2 style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.7);
+                     text-transform:uppercase;letter-spacing:0.05em;margin:0 0 16px;">Items</h2>
+          <div style="overflow-x:auto;margin-bottom:32px;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                  <th style="text-align:left;padding:8px 12px;font-weight:600;color:rgba(255,255,255,0.4);
+                             font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Product</th>
+                  <th style="text-align:left;padding:8px 12px;font-weight:600;color:rgba(255,255,255,0.4);
+                             font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">SKU</th>
+                  <th style="text-align:center;padding:8px 12px;font-weight:600;color:rgba(255,255,255,0.4);
+                             font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Qty</th>
+                  <th style="text-align:right;padding:8px 12px;font-weight:600;color:rgba(255,255,255,0.4);
+                             font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Unit Price</th>
+                  <th style="text-align:right;padding:8px 12px;font-weight:600;color:rgba(255,255,255,0.4);
+                             font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:each="item : ${order.items}"
+                    style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                  <td style="padding:14px 12px;">
+                    <p style="margin:0;font-weight:500;color:#ffffff;" th:text="${item.productName}"></p>
+                    <p style="margin:2px 0 0;font-size:13px;color:rgba(255,255,255,0.4);"
+                       th:text="${item.variantTypeSnapshot}"></p>
+                  </td>
+                  <td style="padding:14px 12px;font-family:monospace;font-size:13px;
+                             color:rgba(255,255,255,0.45);"
+                      th:text="${item.skuSnapshot != null ? item.skuSnapshot : '—'}"></td>
+                  <td style="padding:14px 12px;text-align:center;color:rgba(255,255,255,0.8);"
+                      th:text="${item.quantity}"></td>
+                  <td style="padding:14px 12px;text-align:right;color:rgba(255,255,255,0.8);"
+                      th:text="${'$' + #numbers.formatDecimal(item.unitPrice, 1, 2)}"></td>
+                  <td style="padding:14px 12px;text-align:right;font-weight:600;color:#ffffff;"
+                      th:text="${'$' + #numbers.formatDecimal(item.lineSubtotal, 1, 2)}"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── Totals ─────────────────────────────────────────── -->
+          <div style="display:flex;justify-content:flex-end;margin-bottom:32px;">
+            <div style="width:260px;">
+              <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                <span style="font-size:14px;color:rgba(255,255,255,0.5);">Subtotal</span>
+                <span style="font-size:14px;color:rgba(255,255,255,0.8);"
+                      th:text="${'$' + #numbers.formatDecimal(order.subtotal, 1, 2)}"></span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                <span style="font-size:14px;color:rgba(255,255,255,0.5);">Shipping</span>
+                <span style="font-size:14px;color:rgba(255,255,255,0.8);"
+                      th:text="${order.shippingAmount.signum() == 0 ? 'Free' : '$' + #numbers.formatDecimal(order.shippingAmount, 1, 2)}"></span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                <span style="font-size:14px;color:rgba(255,255,255,0.5);">Tax</span>
+                <span style="font-size:14px;color:rgba(255,255,255,0.8);"
+                      th:text="${'$' + #numbers.formatDecimal(order.taxAmount, 1, 2)}"></span>
+              </div>
+              <hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;">
+              <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                <span style="font-size:15px;font-weight:600;color:#ffffff;">Total</span>
+                <span style="font-size:15px;font-weight:600;color:#ffffff;"
+                      th:text="${'$' + #numbers.formatDecimal(order.total, 1, 2)}"></span>
+              </div>
+            </div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0 0 32px;">
+
+          <!-- ── Address snapshots ──────────────────────────────── -->
+          <div class="cs-addr-grid">
+
+            <!-- Shipping -->
+            <div>
+              <h2 style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.7);
+                         text-transform:uppercase;letter-spacing:0.05em;margin:0 0 14px;">
+                Shipping Address
+              </h2>
+              <address style="font-style:normal;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.7;">
+                <span th:text="${order.shippingFirstName + ' ' + order.shippingLastName}"></span><br>
+                <span th:text="${order.shippingAddressLine1}"></span><br>
+                <span th:if="${order.shippingAddressLine2}"
+                      th:text="${order.shippingAddressLine2}"></span>
+                <br th:if="${order.shippingAddressLine2}">
+                <span th:text="${order.shippingCity + ', ' + order.shippingState + ' ' + order.shippingZip}"></span><br>
+                <span th:if="${order.shippingPhone}" th:text="${order.shippingPhone}"></span>
+              </address>
+            </div>
+
+            <!-- Billing -->
+            <div>
+              <h2 style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.7);
+                         text-transform:uppercase;letter-spacing:0.05em;margin:0 0 14px;">
+                Billing Address
+              </h2>
+              <address style="font-style:normal;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.7;">
+                <span th:text="${order.billingFirstName + ' ' + order.billingLastName}"></span><br>
+                <span th:text="${order.billingAddressLine1}"></span><br>
+                <span th:if="${order.billingAddressLine2}"
+                      th:text="${order.billingAddressLine2}"></span>
+                <br th:if="${order.billingAddressLine2}">
+                <span th:text="${order.billingCity + ', ' + order.billingState + ' ' + order.billingZip}"></span><br>
+                <span th:if="${order.billingPhone}" th:text="${order.billingPhone}"></span>
+              </address>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
