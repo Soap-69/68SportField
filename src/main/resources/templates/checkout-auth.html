@@ -256,8 +256,7 @@
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
           <span style="font-size:14px;color:#6e6e73;">Shipping</span>
-          <span style="font-size:14px;"
-                th:text="${shippingAmount.signum() == 0 ? 'Free' : '$' + #numbers.formatDecimal(shippingAmount, 1, 2)}"></span>
+          <span style="font-size:14px;color:#6e6e73;font-style:italic;">Calculated at fulfillment</span>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
           <span style="font-size:14px;color:#6e6e73;">Tax</span>

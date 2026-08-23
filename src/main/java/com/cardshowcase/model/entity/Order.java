@@ -43,12 +43,20 @@ public class Order {
     @Column(nullable = false, length = 30)
     private OrderStatus status;
 
-    // ── Guest contact ──────────────────────────────────────────────
+    // ── Guest identity ─────────────────────────────────────────────
     @Column(name = "guest_name", length = 200)
     private String guestName;
 
     @Column(name = "guest_email", length = 200)
     private String guestEmail;
+
+    /**
+     * Cart session token captured at checkout time, stored for guest orders only.
+     * Used to verify that idempotency replays come from the same guest session
+     * (cookie), not just the same email address. NULL for customer orders.
+     */
+    @Column(name = "guest_cart_token", length = 200)
+    private String guestCartToken;
 
     // ── Shipping address snapshot ──────────────────────────────────
     @Column(name = "shipping_first_name", length = 100)

@@ -200,7 +200,7 @@ class CheckoutIntegrationTest extends BaseIntegrationTest {
         Customer nonOwner = registerCustomer("non-owner-");
 
         Cart cart = customerCart(owner);
-        CustomerPrincipal ownerPrincipal = new CustomerPrincipal(owner);
+        CustomerPrincipal ownerPrincipal    = new CustomerPrincipal(owner);
         CustomerPrincipal nonOwnerPrincipal = new CustomerPrincipal(nonOwner);
 
         MvcResult checkoutResult = mockMvc.perform(post("/api/checkout")
@@ -238,7 +238,7 @@ class CheckoutIntegrationTest extends BaseIntegrationTest {
         Long firstId = objectMapper.readTree(first.getResponse().getContentAsString())
                 .get("id").asLong();
 
-        // Second checkout — same key, cart now empty (genuine retry scenario)
+        // Second checkout — same key + same session, cart now empty (genuine retry scenario)
         MvcResult second = mockMvc.perform(post("/api/checkout")
                         .with(csrf()).cookie(cookie)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
@@ -268,13 +268,13 @@ class CheckoutIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(bodyA))
                 .andExpect(status().isOk());
 
-        // Cart B: 3 units of the same variant (different quantity → different fingerprint)
+        // Cart B: 3 units (different session → different guestCartToken → 409 on identity check)
         String tokenB = "cart-B-" + ts;
         Cart cartB = cartRepository.save(Cart.builder().sessionToken(tokenB).build());
         cartService.addToCart(cartB, variant.getId(), 3);
 
         CheckoutRequest conflictReq = guestRequest(key); // same key
-        conflictReq.setShippingAddressLine1("999 Different Blvd"); // also different address
+        conflictReq.setShippingAddressLine1("999 Different Blvd");
 
         mockMvc.perform(post("/api/checkout")
                         .with(csrf()).cookie(new MockCookie("cart_token", tokenB))
@@ -341,5 +341,187 @@ class CheckoutIntegrationTest extends BaseIntegrationTest {
                         .content(objectMapper.writeValueAsString(guestRequest(UUID.randomUUID().toString()))))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error", containsString("Insufficient stock")));
+    }
+
+    // ── 9. Checkout with inactive variant → 400 ───────────────────────
+
+    @Test
+    void checkout_inactiveVariant_returns400() throws Exception {
+        String token = "inactive-variant-" + ts;
+        guestCart(token); // adds 2 units while variant is active
+
+        // Deactivate the variant after adding to cart
+        variant.setIsActive(false);
+        variantRepository.save(variant);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(UUID.randomUUID().toString()))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("no longer available")));
+    }
+
+    // ── 10. Checkout with inactive product → 400 ──────────────────────
+
+    @Test
+    void checkout_inactiveProduct_returns400() throws Exception {
+        String token = "inactive-product-" + ts;
+        guestCart(token); // adds 2 units while product is active
+
+        // Deactivate the parent product after adding to cart
+        Product product = variant.getProduct();
+        product.setIsActive(false);
+        productRepository.save(product);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(UUID.randomUUID().toString()))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("no longer available")));
+    }
+
+    // ── 11. Guest checkout missing required fields → 400 ──────────────
+
+    @Test
+    void checkout_guest_missingGuestEmail_returns400() throws Exception {
+        String token = "no-email-" + ts;
+        guestCart(token);
+        CheckoutRequest req = guestRequest(UUID.randomUUID().toString());
+        req.setGuestEmail(null);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("email")));
+    }
+
+    @Test
+    void checkout_guest_missingShippingCity_returns400() throws Exception {
+        String token = "no-city-" + ts;
+        guestCart(token);
+        CheckoutRequest req = guestRequest(UUID.randomUUID().toString());
+        req.setShippingCity(null);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("city")));
+    }
+
+    // ── 12. Authenticated checkout missing address fields → 400 ───────
+
+    @Test
+    void checkout_authenticated_noAddressFields_returns400() throws Exception {
+        Customer customer = registerCustomer("no-addr-");
+        customerCart(customer);
+        CustomerPrincipal principal = new CustomerPrincipal(customer);
+
+        // No savedShippingAddressId and no inline fields — should fail validation
+        CheckoutRequest req = new CheckoutRequest();
+        req.setIdempotencyKey(UUID.randomUUID().toString());
+        // billingSameAsShipping defaults to true, so only shipping matters
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf()).with(user(principal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("required")));
+    }
+
+    // ── 13. Cross-customer idempotency key reuse → 409 ────────────────
+
+    @Test
+    void checkout_crossCustomerIdempotencyKey_returns409() throws Exception {
+        Customer customerA = registerCustomer("cross-cust-A-");
+        Customer customerB = registerCustomer("cross-cust-B-");
+        customerCart(customerA);
+        customerCart(customerB);
+        CustomerPrincipal principalA = new CustomerPrincipal(customerA);
+        CustomerPrincipal principalB = new CustomerPrincipal(customerB);
+
+        String sharedKey = "cross-cust-key-" + ts;
+
+        // Customer A checks out successfully
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf()).with(user(principalA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(sharedKey))))
+                .andExpect(status().isOk());
+
+        // Customer B attempts to use the same key → identity mismatch → 409
+        // (idempotency check fires before empty-cart guard, so cart state doesn't matter)
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf()).with(user(principalB))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(sharedKey))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", containsString("already used")));
+    }
+
+    // ── 14. Cross-session guest idempotency key reuse → 409 ───────────
+
+    @Test
+    void checkout_crossSessionGuestIdempotencyKey_returns409() throws Exception {
+        String tokenA    = "guest-sess-A-" + ts;
+        String tokenB    = "guest-sess-B-" + ts;
+        String sharedKey = "cross-session-key-" + ts;
+
+        // Session A checks out first
+        guestCart(tokenA);
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf()).cookie(new MockCookie("cart_token", tokenA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(sharedKey))))
+                .andExpect(status().isOk());
+
+        // Session B (different cookie) attempts the same key → identity mismatch → 409
+        guestCart(tokenB);
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf()).cookie(new MockCookie("cart_token", tokenB))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(sharedKey))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", containsString("already used")));
+    }
+
+    // ── 15. Shipping amount is exactly zero (no invented rules) ───────
+
+    @Test
+    void checkout_shippingAmountIsZero() throws Exception {
+        String token = "shipping-zero-" + ts;
+        guestCart(token);
+
+        MvcResult result = mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(guestRequest(UUID.randomUUID().toString()))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // shippingAmount must be exactly 0 — no invented threshold/rate
+        com.fasterxml.jackson.databind.JsonNode body =
+                objectMapper.readTree(result.getResponse().getContentAsString());
+        assertThat(body.has("shippingAmount") ? body.get("shippingAmount").decimalValue()
+                                               : BigDecimal.ZERO)
+                .isEqualByComparingTo(BigDecimal.ZERO);
+
+        // Verify in DB too
+        List<Order> orders = orderRepository.findAll();
+        Order order = orders.stream()
+                .filter(o -> o.getGuestEmail() != null && o.getGuestEmail().startsWith("jane-" + ts))
+                .findFirst().orElseThrow();
+        assertThat(order.getShippingAmount()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 }

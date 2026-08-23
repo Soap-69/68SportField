@@ -20,10 +20,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -32,9 +29,6 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 public class OrderService {
-
-    private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("100.00");
-    private static final BigDecimal FLAT_SHIPPING_RATE      = new BigDecimal("9.99");
 
     private final CartService cartService;
     private final CartItemRepository cartItemRepository;
@@ -60,14 +54,19 @@ public class OrderService {
      *   Conflict scenario: a different checkout attempt reuses an already-consumed key
      *   but the current cart has different items or the address differs → 409.
      *
-     *   Policy table:
-     *     Key exists + cart is empty              → genuine retry → return original order
-     *     Key exists + cart has items + same fp   → duplicate in-flight → return original order
-     *     Key exists + cart has items + diff fp   → key reuse conflict → 409
-     *     Key is new                              → create order normally
+     *   Identity check (before fingerprint/content check):
+     *   - Authenticated replay must match customer_id.
+     *   - Guest replay must match the cart session token (cookie), not guestEmail.
      *
-     * The cart is always resolved from the current request's session/cookie or the
-     * authenticated customer's own cart. No cart_id is accepted from the client.
+     *   Policy table:
+     *     Key exists + wrong identity                    → 409 (cross-account/session leak prevention)
+     *     Key exists + correct identity + cart empty     → genuine retry → return original order
+     *     Key exists + correct identity + same fp        → concurrent dup → return original order
+     *     Key exists + correct identity + diff fp        → key reuse conflict → 409
+     *     Key is new                                     → create order normally
+     *
+     * Shipping: $0 placeholder — approved shipping rules not yet defined.
+     * Do not invent a rate or threshold. Replace when rules are approved.
      */
     public Order checkout(CheckoutRequest req,
                           HttpServletRequest httpReq,
@@ -76,17 +75,25 @@ public class OrderService {
 
         Long customerId = principal != null ? principal.getId() : null;
 
-        // 1. Idempotency check — FIRST, before cart/empty-cart guard
+        // Resolve the guest cart token early — needed for idempotency identity verification
+        // and stored on the order so future replays from the same session can be authenticated.
+        String cartToken = customerId == null ? cartService.getCartCookie(httpReq) : null;
+
+        // 1. Idempotency check — FIRST, before input validation and empty-cart guard
         Optional<Order> existing = orderRepository.findByIdempotencyKey(req.getIdempotencyKey());
         if (existing.isPresent()) {
             Order prev = existing.get();
+
+            // Verify the replay comes from the same identity — prevents cross-account/session leakage
+            verifyIdempotencyIdentity(prev, customerId, cartToken, req.getIdempotencyKey());
+
             // Resolve cart to detect a conflict (may already be empty on genuine retry)
             List<CartItem> currentItems = cartService.findExistingCart(httpReq, customerId)
                     .map(c -> cartItemRepository.findByCartId(c.getId()))
                     .orElse(List.of());
 
             if (!currentItems.isEmpty()) {
-                // Cart still has items: check fingerprint to detect key reuse with diff content
+                // Cart still has items: check fingerprint to detect key reuse with different content
                 String fp = computeFingerprint(req, currentItems, customerId);
                 if (!fp.equals(prev.getRequestFingerprint())) {
                     throw new IdempotencyConflictException(
@@ -100,7 +107,10 @@ public class OrderService {
             return prev;
         }
 
-        // 2. Resolve cart — never from request body
+        // 2. Validate checkout input (after idempotency so genuine replays are never blocked)
+        validateCheckoutInput(req, customerId);
+
+        // 3. Resolve cart — never from request body
         Cart cart = cartService.findExistingCart(httpReq, customerId)
                 .orElseThrow(() -> new IllegalStateException("No active cart found."));
 
@@ -109,14 +119,24 @@ public class OrderService {
             throw new IllegalStateException("Cart is empty.");
         }
 
-        // 3. Stock sufficiency check — read-only, no deduction
+        // 4. Authoritative item validation: variant + product must be active; stock sufficient.
+        //    This is the definitive gate — do NOT rely on cart-page pre-validation only.
         List<String> stockErrors = new ArrayList<>();
         for (CartItem item : items) {
-            int stock = inventoryService.getTotalStock(item.getVariant().getId());
+            ProductVariant v = item.getVariant();
+            if (!Boolean.TRUE.equals(v.getIsActive())) {
+                throw new IllegalStateException(
+                        "\"" + v.getProduct().getName() + " (" + v.getVariantType() +
+                        ")\" is no longer available.");
+            }
+            if (!Boolean.TRUE.equals(v.getProduct().getIsActive())) {
+                throw new IllegalStateException(
+                        "\"" + v.getProduct().getName() + "\" is no longer available.");
+            }
+            int stock = inventoryService.getTotalStock(v.getId());
             if (item.getQuantity() > stock) {
                 stockErrors.add(String.format("\"%s (%s)\": requested %d, available %d",
-                        item.getVariant().getProduct().getName(),
-                        item.getVariant().getVariantType(),
+                        v.getProduct().getName(), v.getVariantType(),
                         item.getQuantity(), stock));
             }
         }
@@ -127,22 +147,21 @@ public class OrderService {
         // 5. Compute fingerprint (stored on order for future idempotency replay detection)
         String fingerprint = computeFingerprint(req, items, customerId);
 
-        // 6. Resolve shipping address snapshot
+        // 6. Resolve address snapshots
         String[] shippingSnap = resolveShippingSnapshot(req, customerId);
         // [0]=firstName [1]=lastName [2]=line1 [3]=line2 [4]=city [5]=state [6]=zip [7]=country [8]=phone
-
-        // 7. Resolve billing address snapshot
         String[] billingSnap  = resolveBillingSnapshot(req, customerId, shippingSnap);
 
-        // 8. Calculate totals
+        // 7. Calculate totals.
+        // Shipping: $0 placeholder — approved shipping rules are not yet defined.
+        // Do NOT invent a rate, percentage, or threshold. Replace this when rules are approved.
         BigDecimal subtotal = items.stream()
                 .map(i -> i.getVariant().getEffectivePrice()
                         .multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal shipping = subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0
-                ? BigDecimal.ZERO : FLAT_SHIPPING_RATE;
-        BigDecimal tax   = BigDecimal.ZERO;   // tax calculation deferred
-        BigDecimal total = subtotal.add(shipping).add(tax);
+        BigDecimal shipping = BigDecimal.ZERO; // deferred
+        BigDecimal tax      = BigDecimal.ZERO; // deferred
+        BigDecimal total    = subtotal.add(shipping).add(tax);
 
         // 8. Persist order
         Order order = Order.builder()
@@ -150,6 +169,7 @@ public class OrderService {
                 .idempotencyKey(req.getIdempotencyKey())
                 .requestFingerprint(fingerprint)
                 .customer(customerId != null ? em.getReference(Customer.class, customerId) : null)
+                .guestCartToken(cartToken)
                 .status(OrderStatus.PENDING_PAYMENT)
                 .guestName(customerId == null ? req.getGuestName() : null)
                 .guestEmail(customerId == null ? req.getGuestEmail() : null)
@@ -182,12 +202,11 @@ public class OrderService {
 
         order = orderRepository.save(order);
 
-        // 8. Persist order items with snapshots
+        // 9. Persist order items with snapshots
         for (CartItem item : items) {
             ProductVariant v = item.getVariant();
             BigDecimal unitPrice = v.getEffectivePrice();
-            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
-            OrderItem oi = OrderItem.builder()
+            orderItemRepository.save(OrderItem.builder()
                     .order(order)
                     .productVariant(v)
                     .productName(v.getProduct().getName())
@@ -195,12 +214,11 @@ public class OrderService {
                     .variantTypeSnapshot(v.getVariantType())
                     .unitPrice(unitPrice)
                     .quantity(item.getQuantity())
-                    .lineSubtotal(lineTotal)
-                    .build();
-            orderItemRepository.save(oi);
+                    .lineSubtotal(unitPrice.multiply(BigDecimal.valueOf(item.getQuantity())))
+                    .build());
         }
 
-        // 9. Clear cart
+        // 10. Clear cart
         cartService.clearCart(cart);
 
         log.info("Order created: {} (customer={}, guest={})",
@@ -220,9 +238,10 @@ public class OrderService {
                     "Cannot transition order " + order.getOrderNumber() +
                     " from " + order.getStatus() + " to " + newStatus + ".");
         }
+        OrderStatus oldStatus = order.getStatus(); // capture before mutation
         order.setStatus(newStatus);
         Order saved = orderRepository.save(order);
-        log.info("Order {} transitioned {} → {}", order.getOrderNumber(), order.getStatus(), newStatus);
+        log.info("Order {} transitioned {} → {}", order.getOrderNumber(), oldStatus, newStatus);
         return saved;
     }
 
@@ -234,8 +253,8 @@ public class OrderService {
     }
 
     /**
-     * Returns the order only if it belongs to {@code customerId}; throws 403-mapped
-     * IllegalArgumentException otherwise.
+     * Returns the order only if it belongs to {@code customerId}.
+     * Throws {@link SecurityException} (→ 403) if it doesn't.
      */
     @Transactional(readOnly = true)
     public Order findByIdForCustomer(Long orderId, Long customerId) {
@@ -246,6 +265,116 @@ public class OrderService {
             throw new SecurityException("Access denied to order " + orderId);
         }
         return order;
+    }
+
+    /**
+     * Used by the controller to resolve the winning order after a near-simultaneous
+     * duplicate submission is detected via {@code DataIntegrityViolationException}
+     * on the idempotency key UNIQUE constraint.
+     *
+     * Applies the same identity verification as the normal replay path so that a
+     * concurrent duplicate cannot expose another account's or session's order.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Order> findForIdempotentReplay(String idempotencyKey,
+                                                    HttpServletRequest httpReq,
+                                                    CustomerPrincipal principal) {
+        Long customerId = principal != null ? principal.getId() : null;
+        String cartToken = customerId == null ? cartService.getCartCookie(httpReq) : null;
+        return orderRepository.findByIdempotencyKey(idempotencyKey).filter(order -> {
+            try {
+                verifyIdempotencyIdentity(order, customerId, cartToken, idempotencyKey);
+                return true;
+            } catch (IdempotencyConflictException e) {
+                return false;
+            }
+        });
+    }
+
+    // ── Idempotency identity verification ────────────────────────────
+
+    /**
+     * Verifies that the current caller is the same identity that originally submitted
+     * this idempotency key, preventing cross-account and cross-session information leakage.
+     *
+     * <ul>
+     *   <li>Authenticated: order's {@code customer_id} must equal the current {@code customerId}.</li>
+     *   <li>Guest: order's {@code guestCartToken} must equal the current cart-cookie token.
+     *       Identity is tied to the session token, NOT to {@code guestEmail}, because two
+     *       different guests may share an email address.</li>
+     * </ul>
+     */
+    private void verifyIdempotencyIdentity(Order existing, Long customerId, String cartToken,
+                                            String key) {
+        if (customerId != null) {
+            // Authenticated caller: order must belong to this customer
+            if (existing.getCustomer() == null ||
+                    !existing.getCustomer().getId().equals(customerId)) {
+                throw new IdempotencyConflictException(
+                        "Idempotency key '" + key + "' was already used by a different account.");
+            }
+        } else {
+            // Guest caller: order must have been created by the same cart session
+            if (!Objects.equals(existing.getGuestCartToken(), cartToken)) {
+                throw new IdempotencyConflictException(
+                        "Idempotency key '" + key + "' was already used by a different session.");
+            }
+        }
+    }
+
+    // ── Checkout input validation ─────────────────────────────────────
+
+    /**
+     * Validates checkout request fields conditionally by caller identity.
+     * Must be called AFTER the idempotency check so that genuine retries
+     * (which may have an empty or missing cart) are never blocked by input validation.
+     */
+    private void validateCheckoutInput(CheckoutRequest req, Long customerId) {
+        if (customerId == null) {
+            // Guest checkout: contact info + shipping address required
+            require(req.getGuestName(), "Guest name is required.");
+            requireEmail(req.getGuestEmail());
+            requireShippingFields(req);
+        } else {
+            // Authenticated checkout: saved address OR complete inline fields
+            if (req.getSavedShippingAddressId() == null) {
+                requireShippingFields(req);
+            }
+        }
+        // Billing (applies to both guest and authenticated)
+        if (!req.isBillingSameAsShipping() && req.getSavedBillingAddressId() == null) {
+            requireBillingFields(req);
+        }
+    }
+
+    private static void requireShippingFields(CheckoutRequest req) {
+        require(req.getShippingFirstName(),    "Shipping first name is required.");
+        require(req.getShippingLastName(),     "Shipping last name is required.");
+        require(req.getShippingAddressLine1(), "Shipping address line 1 is required.");
+        require(req.getShippingCity(),         "Shipping city is required.");
+        require(req.getShippingState(),        "Shipping state is required.");
+        require(req.getShippingZip(),          "Shipping ZIP is required.");
+        require(req.getShippingCountry(),      "Shipping country is required.");
+    }
+
+    private static void requireBillingFields(CheckoutRequest req) {
+        require(req.getBillingFirstName(),    "Billing first name is required.");
+        require(req.getBillingLastName(),     "Billing last name is required.");
+        require(req.getBillingAddressLine1(), "Billing address line 1 is required.");
+        require(req.getBillingCity(),         "Billing city is required.");
+        require(req.getBillingState(),        "Billing state is required.");
+        require(req.getBillingZip(),          "Billing ZIP is required.");
+        require(req.getBillingCountry(),      "Billing country is required.");
+    }
+
+    private static void require(String value, String message) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(message);
+    }
+
+    private static void requireEmail(String email) {
+        if (email == null || email.isBlank() || !email.contains("@") || !email.contains(".")) {
+            throw new IllegalArgumentException("A valid guest email address is required.");
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
@@ -274,22 +403,7 @@ public class OrderService {
                 + nvl(req.getShippingCity()) + "|"
                 + nvl(req.getShippingZip());
 
-        String raw = cartPart + "||" + identityPart + "||" + addressPart;
-        return sha256Hex(raw);
-    }
-
-    private static String nvl(String s) { return s != null ? s.trim() : ""; }
-
-    private static String sha256Hex(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(64);
-            for (byte b : hash) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
+        return sha256Hex(cartPart + "||" + identityPart + "||" + addressPart);
     }
 
     /**
@@ -339,5 +453,19 @@ public class OrderService {
                 req.getBillingAddressLine1(), req.getBillingAddressLine2(),
                 req.getBillingCity(), req.getBillingState(), req.getBillingZip(),
                 req.getBillingCountry(), req.getBillingPhone()};
+    }
+
+    private static String nvl(String s) { return s != null ? s.trim() : ""; }
+
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : hash) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 }

@@ -20,8 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CheckoutController {
 
-    private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("100.00");
-    private static final BigDecimal FLAT_SHIPPING_RATE      = new BigDecimal("9.99");
+    // Shipping rules are not yet approved. Display $0 as a placeholder until defined.
 
     private final CartService cartService;
     private final CustomerAddressService addressService;
@@ -61,9 +60,8 @@ public class CheckoutController {
         List<CartItem>       items     = cartService.getItemsForCart(cart);
         List<CustomerAddress> addresses = addressService.getAddressesByCustomer(principal.getId());
         BigDecimal subtotal  = cartService.getCartSubtotal(cart);
-        BigDecimal shipping  = subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0
-                               ? BigDecimal.ZERO : FLAT_SHIPPING_RATE;
-        BigDecimal tax       = BigDecimal.ZERO;
+        BigDecimal shipping  = BigDecimal.ZERO; // deferred: approved shipping rules not yet defined
+        BigDecimal tax       = BigDecimal.ZERO; // deferred
         BigDecimal total     = subtotal.add(shipping).add(tax);
 
         model.addAttribute("cartItems",      items);
