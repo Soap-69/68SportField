@@ -101,6 +101,12 @@ public class PaymentService {
                     "Payment " + paymentId + " cannot be retried from status " +
                     payment.getStatus() + ". Only FAILED payments can be retried.");
         }
+        if (payment.getOrder().getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new IllegalStateException(
+                    "Payment " + paymentId + " cannot be retried: order " +
+                    payment.getOrder().getId() + " is " + payment.getOrder().getStatus() +
+                    ". Retry is only allowed while Order=PENDING_PAYMENT.");
+        }
         payment.setStatus(PaymentStatus.PENDING);
         payment.setFailureCode(null);
         payment.setFailureMessage(null);

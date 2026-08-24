@@ -210,7 +210,33 @@ class PaymentServiceUnitTest {
         verify(orderService, never()).transitionTo(any(), any());
     }
 
-    // ── 7. Order not PENDING_PAYMENT → init rejected ──────────────────
+    // ── 7. applyRetryTransition: Order not PENDING_PAYMENT → rejected ─
+
+    @Test
+    void retryTransition_orderNotPendingPayment_throwsIllegalState_paymentUnmutated() {
+        Order cancelledOrder = Order.builder().id(1L).orderNumber("ORD-TEST-001")
+                .status(OrderStatus.CANCELLED).total(new BigDecimal("100.00"))
+                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+        Payment failedPayment = Payment.builder().id(6L).order(cancelledOrder)
+                .provider("MANUAL").status(PaymentStatus.FAILED)
+                .failureCode("DECLINED").failureMessage("declined")
+                .amount(new BigDecimal("100.00")).currency("USD").idempotencyKey("key-006")
+                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+
+        when(paymentRepository.findById(6L)).thenReturn(Optional.of(failedPayment));
+
+        assertThatThrownBy(() -> paymentService.applyRetryTransition(6L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PENDING_PAYMENT");
+
+        // Payment must not be mutated
+        assertThat(failedPayment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(failedPayment.getFailureCode()).isEqualTo("DECLINED");
+        verify(paymentRepository, never()).save(any());
+        verify(paymentEventRepository, never()).save(any());
+    }
+
+    // ── 8. getOrInitializePayment: Order not PENDING_PAYMENT → rejected ─
 
     @Test
     void initializePayment_orderNotPendingPayment_throwsIllegalState() {
@@ -227,7 +253,7 @@ class PaymentServiceUnitTest {
                 .hasMessageContaining("PENDING_PAYMENT");
     }
 
-    // ── 8. Order not PENDING_PAYMENT at confirmation → rejected ──────
+    // ── 9. confirmSuccessfulPayment: Order not PENDING_PAYMENT → rejected ─
 
     @Test
     void confirmPayment_orderNotPendingPayment_throwsIllegalState() {
