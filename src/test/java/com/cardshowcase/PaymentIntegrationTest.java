@@ -111,8 +111,15 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
         return orderRepository.findById(orderId).orElseThrow();
     }
 
+    /** Builds a request body with a fresh idempotency key (one-off calls). */
     private String manualConfirmBody(GatewayOutcome outcome) throws Exception {
-        return objectMapper.writeValueAsString(Map.of("outcome", outcome.name()));
+        return manualConfirmBody(outcome, UUID.randomUUID().toString());
+    }
+
+    /** Builds a request body with a specific idempotency key (idempotency/retry tests). */
+    private String manualConfirmBody(GatewayOutcome outcome, String idempotencyKey) throws Exception {
+        return objectMapper.writeValueAsString(
+                Map.of("outcome", outcome.name(), "idempotencyKey", idempotencyKey));
     }
 
     private String adminUrl(long orderId) {
@@ -271,25 +278,27 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
     void manualConfirm_alreadySucceeded_idempotentNoOp_noDoubleDeduction() throws Exception {
         Order order = createGuestOrder("pay-idem-" + ts);
         int stockBefore = inventoryService.getTotalStock(variant.getId());
+        // Same key for both calls — exercising the retry-of-same-request contract
+        String key = "idem-nodup-" + ts;
 
         // First confirm → SUCCEEDED
         mockMvc.perform(post(adminUrl(order.getId()))
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(manualConfirmBody(GatewayOutcome.SUCCESS)))
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, key)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("SUCCEEDED")));
 
         int stockAfterFirst = inventoryService.getTotalStock(variant.getId());
         assertThat(stockAfterFirst).isEqualTo(stockBefore - 3);
 
-        // Second confirm → no-op
+        // Second confirm — same key, same order → idempotent no-op (SUCCEEDED already)
         mockMvc.perform(post(adminUrl(order.getId()))
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(manualConfirmBody(GatewayOutcome.SUCCESS)))
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, key)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("SUCCEEDED")));
 
@@ -300,29 +309,31 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
                 .isEqualTo(OrderStatus.PAID);
     }
 
-    // ── 7. FAILED → retry → SUCCEEDED (both events exist) ────────────
+    // ── 7. FAILED → retry → SUCCEEDED (same key both calls; both events exist) ──
 
     @Test
     void manualConfirm_retryAfterFailed_succeeds_bothEventsRecorded() throws Exception {
         Order order = createGuestOrder("pay-retry-" + ts);
+        // Same key for both calls — the retry is a replay of the same logical request
+        String key = "retry-key-" + ts;
 
         // First call: DECLINED → FAILED
         mockMvc.perform(post(adminUrl(order.getId()))
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(manualConfirmBody(GatewayOutcome.DECLINED)))
+                        .content(manualConfirmBody(GatewayOutcome.DECLINED, key)))
                 .andExpect(status().isUnprocessableEntity());
 
         Payment failedPayment = paymentRepository.findByOrder_Id(order.getId()).orElseThrow();
         assertThat(failedPayment.getStatus()).isEqualTo(PaymentStatus.FAILED);
 
-        // Second call: SUCCESS → retry transition + SUCCEEDED
+        // Second call — same key: controller finds existing FAILED payment, applies retry, confirms
         mockMvc.perform(post(adminUrl(order.getId()))
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(manualConfirmBody(GatewayOutcome.SUCCESS)))
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, key)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("SUCCEEDED")));
 
@@ -407,5 +418,112 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(manualConfirmBody(GatewayOutcome.SUCCESS)))
                 .andExpect(status().isForbidden());
+    }
+
+    // ── Endpoint-level idempotency contract tests ─────────────────────
+
+    /**
+     * Same order + same key → same logical Payment returned (not a new one).
+     */
+    @Test
+    void endpoint_sameOrderSameKey_returnsSamePaymentId() throws Exception {
+        Order order = createGuestOrder("idem-ep-same-" + ts);
+        String key = "ep-same-key-" + ts;
+
+        // First call: creates Payment
+        String resp1 = mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, key)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        Long paymentId1 = objectMapper.readTree(resp1).get("id").asLong();
+
+        // Second call — same order, same key: returns the same Payment
+        String resp2 = mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, key)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        Long paymentId2 = objectMapper.readTree(resp2).get("id").asLong();
+        assertThat(paymentId2).isEqualTo(paymentId1);
+        // Exactly one payment row for this order
+        assertThat(paymentRepository.findByOrder_Id(order.getId())).isPresent();
+    }
+
+    /**
+     * Different order + same key → 409 idempotency conflict.
+     */
+    @Test
+    void endpoint_differentOrderSameKey_returns409() throws Exception {
+        Order orderA = createGuestOrder("idem-ep-A-" + ts);
+        Order orderB = createGuestOrder("idem-ep-B-" + ts);
+        String sharedKey = "ep-conflict-key-" + ts;
+
+        // Order A succeeds with the shared key
+        mockMvc.perform(post(adminUrl(orderA.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, sharedKey)))
+                .andExpect(status().isOk());
+
+        // Order B uses the same key → 409 idempotency conflict
+        mockMvc.perform(post(adminUrl(orderB.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, sharedKey)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", containsString("different order")));
+    }
+
+    /**
+     * Never create a second Payment for the same order, even with a new key.
+     */
+    @Test
+    void endpoint_sameOrder_neverCreatesSecondPayment() throws Exception {
+        Order order = createGuestOrder("idem-ep-nodup-" + ts);
+
+        // First call with key A
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, "key-A-" + ts)))
+                .andExpect(status().isOk());
+
+        // Second call with a completely different key — still returns the existing Payment
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, "key-B-" + ts)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("SUCCEEDED")));
+
+        // Still exactly one Payment for this order
+        assertThat(paymentRepository.findByOrder_Id(order.getId())).isPresent();
+    }
+
+    /**
+     * Missing idempotencyKey field → 400 validation error.
+     */
+    @Test
+    void endpoint_missingIdempotencyKey_returns400() throws Exception {
+        Order order = createGuestOrder("idem-ep-missing-" + ts);
+
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        // Body without idempotencyKey field
+                        .content("{\"outcome\":\"SUCCESS\"}"))
+                .andExpect(status().isBadRequest());
     }
 }

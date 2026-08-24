@@ -224,12 +224,19 @@ public class PaymentService {
     }
 
     /**
-     * Deducts inventory for all order items.
-     * Deterministic: loads active inventory rows ordered by location ID ASC,
-     * deducts sequentially from each until the required quantity is satisfied.
-     * All deductions occur within the caller's single transaction.
+     * Deducts inventory for all order items within the caller's single transaction.
      *
-     * May throw ObjectOptimisticLockingFailureException — caller handles it.
+     * Algorithm: load active inventory rows for each variant ordered deterministically
+     * by location ID ASC; deduct sequentially until the requested quantity is satisfied.
+     *
+     * After exhausting all rows, asserts {@code remaining == 0}. If stock disappeared
+     * between the pre-deduction validation and the deduction itself (race window), the
+     * remaining quantity will be positive. In that case, throwing
+     * {@link PaymentConcurrencyException} causes the entire transaction to roll back —
+     * no partial deduction is ever committed.
+     *
+     * May also throw ObjectOptimisticLockingFailureException — caller wraps it as
+     * {@link PaymentConcurrencyException} to trigger the same rollback path.
      */
     private void deductInventory(List<OrderItem> items) {
         for (OrderItem item : items) {
@@ -242,6 +249,15 @@ public class PaymentService {
                 inv.setQuantity(inv.getQuantity() - deduct);
                 inventoryRepository.save(inv); // may throw OLE → propagates to caller
                 remaining -= deduct;
+            }
+            if (remaining > 0) {
+                // Stock was consumed between validation and deduction (race window).
+                // Throw to roll back the entire transaction — no partial deduction committed.
+                throw new PaymentConcurrencyException(
+                        "Inventory consistency failure for variant " +
+                        item.getProductVariant().getId() +
+                        ": stock disappeared during deduction (remaining=" + remaining + "). " +
+                        "Retry the confirmation.", null);
             }
         }
     }

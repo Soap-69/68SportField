@@ -16,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Dev/test-only admin endpoint for manually confirming payments.
@@ -54,9 +53,11 @@ public class ManualPaymentAdminController {
             @Valid @RequestBody ManualConfirmRequest req) {
 
         try {
-            // 1. Get or create the logical Payment for this order
+            // 1. Get or create the logical Payment for this order using the caller-supplied key.
+            //    Same order + same key → existing Payment (idempotent).
+            //    Different order + same key → IdempotencyConflictException → 409.
             var payment = paymentService.getOrInitializePayment(
-                    orderId, ManualPaymentGateway.PROVIDER, UUID.randomUUID().toString());
+                    orderId, ManualPaymentGateway.PROVIDER, req.getIdempotencyKey());
 
             // 2. Already SUCCEEDED → idempotent no-op
             if (payment.getStatus() == PaymentStatus.SUCCEEDED) {
