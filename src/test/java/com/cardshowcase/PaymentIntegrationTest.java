@@ -526,4 +526,84 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
                         .content("{\"outcome\":\"SUCCESS\"}"))
                 .andExpect(status().isBadRequest());
     }
+
+    // ── Order state guard regression tests ───────────────────────────
+
+    /**
+     * Confirming a payment when the Order is CANCELLED → 422 (IllegalStateException).
+     * Guard is in confirmSuccessfulPayment: Order must be PENDING_PAYMENT.
+     */
+    @Test
+    void manualConfirm_cancelledOrder_confirm_returns422() throws Exception {
+        Order order = createGuestOrder("guard-confirm-cancelled-" + ts);
+        // Initialize the payment while order is still PENDING_PAYMENT (valid)
+        paymentService.getOrInitializePayment(order.getId(), "MANUAL", UUID.randomUUID().toString());
+
+        // Directly cancel the order to simulate a race or admin cancellation
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+
+        // Confirm attempt on the now-CANCELLED order → 422
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error", containsString("PENDING_PAYMENT")));
+    }
+
+    /**
+     * Initializing a payment when the Order is CANCELLED → 422 (IllegalStateException).
+     * Guard is in getOrInitializePayment: Order must be PENDING_PAYMENT.
+     */
+    @Test
+    void manualConfirm_cancelledOrder_init_returns422() throws Exception {
+        Order order = createGuestOrder("guard-init-cancelled-" + ts);
+        // Cancel the order before any payment is initialized
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+
+        // The endpoint will call getOrInitializePayment → guard rejects it → 422
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error", containsString("PENDING_PAYMENT")));
+    }
+
+    /**
+     * FAILED → retry → SUCCEEDED still works after adding the Order state guard.
+     * The guard only fires for NEW confirmation attempts; the retry path transitions
+     * Payment back to PENDING (via applyRetryTransition) and then confirms normally —
+     * the Order is still PENDING_PAYMENT throughout.
+     * (Regression: guard must NOT interfere with the retry path.)
+     */
+    @Test
+    void manualConfirm_retryPath_orderGuardDoesNotInterfere() throws Exception {
+        Order order = createGuestOrder("guard-retry-ok-" + ts);
+        String key = "guard-retry-key-" + ts;
+
+        // First call: DECLINED → FAILED
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.DECLINED, key)))
+                .andExpect(status().isUnprocessableEntity());
+
+        // Order is still PENDING_PAYMENT; retry should succeed
+        mockMvc.perform(post(adminUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(manualConfirmBody(GatewayOutcome.SUCCESS, key)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("SUCCEEDED")));
+
+        assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus())
+                .isEqualTo(OrderStatus.PAID);
+    }
 }

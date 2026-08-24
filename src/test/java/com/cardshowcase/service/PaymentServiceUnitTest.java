@@ -6,6 +6,7 @@ import com.cardshowcase.payment.GatewayOutcome;
 import com.cardshowcase.payment.PaymentConfirmationResult;
 import com.cardshowcase.payment.PaymentResult;
 import com.cardshowcase.repository.*;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,6 +34,7 @@ class PaymentServiceUnitTest {
     @Mock OrderItemRepository orderItemRepository;
     @Mock InventoryRepository inventoryRepository;
     @Mock OrderService orderService;
+    @Mock EntityManager em;
     @InjectMocks PaymentService paymentService;
 
     // ── Shared fixtures ───────────────────────────────────────────────
@@ -44,6 +47,7 @@ class PaymentServiceUnitTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(paymentService, "em", em);
         Category cat = Category.builder().id(1L).name("Cat").isActive(true).build();
         Product product = Product.builder().id(1L).name("Test Card").isActive(true).category(cat).build();
         variant = ProductVariant.builder().id(1L).product(product).variantType("Box")
@@ -181,5 +185,69 @@ class PaymentServiceUnitTest {
         assertThatThrownBy(() -> paymentService.confirmSuccessfulPayment(4L, result))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("applyRetryTransition");
+    }
+
+    // ── 6. OLE thrown at em.flush() (not at save) → PaymentConcurrencyException ─
+
+    @Test
+    void confirmPayment_oleThrownAtFlush_throwsPaymentConcurrencyException() {
+        when(paymentRepository.findById(1L)).thenReturn(Optional.of(pendingPayment));
+        when(orderItemRepository.findByOrder_IdOrderByIdAsc(1L)).thenReturn(List.of(orderItem));
+        when(inventoryRepository.findActiveByVariantIdOrderByLocationIdAsc(1L))
+                .thenReturn(List.of(inventory));
+        when(inventoryRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        // deductInventory save() succeeds, but flush() surfaces the OLE
+        doThrow(new ObjectOptimisticLockingFailureException(Inventory.class, 1L))
+                .when(em).flush();
+
+        PaymentResult result = new PaymentResult(GatewayOutcome.SUCCESS, "TX-FLUSH", null, null);
+        assertThatThrownBy(() -> paymentService.confirmSuccessfulPayment(1L, result))
+                .isInstanceOf(PaymentConcurrencyException.class)
+                .hasMessageContaining("Concurrent inventory update conflict");
+
+        // Payment must NOT be mutated to SUCCEEDED — OLE rolled back the transaction
+        assertThat(pendingPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+        verify(orderService, never()).transitionTo(any(), any());
+    }
+
+    // ── 7. Order not PENDING_PAYMENT → init rejected ──────────────────
+
+    @Test
+    void initializePayment_orderNotPendingPayment_throwsIllegalState() {
+        Order cancelledOrder = Order.builder().id(99L).orderNumber("ORD-TEST-CANCELLED")
+                .status(OrderStatus.CANCELLED).total(new BigDecimal("100.00"))
+                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+
+        when(paymentRepository.findByOrder_Id(99L)).thenReturn(Optional.empty());
+        when(paymentRepository.findByIdempotencyKey("key-cancel")).thenReturn(Optional.empty());
+        when(orderRepository.findById(99L)).thenReturn(Optional.of(cancelledOrder));
+
+        assertThatThrownBy(() -> paymentService.getOrInitializePayment(99L, "MANUAL", "key-cancel"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PENDING_PAYMENT");
+    }
+
+    // ── 8. Order not PENDING_PAYMENT at confirmation → rejected ──────
+
+    @Test
+    void confirmPayment_orderNotPendingPayment_throwsIllegalState() {
+        Order paidOrder = Order.builder().id(1L).orderNumber("ORD-TEST-001")
+                .status(OrderStatus.PAID).total(new BigDecimal("100.00"))
+                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+        Payment paymentOnPaidOrder = Payment.builder().id(5L).order(paidOrder)
+                .provider("MANUAL").status(PaymentStatus.PENDING)
+                .amount(new BigDecimal("100.00")).currency("USD").idempotencyKey("key-005")
+                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+
+        when(paymentRepository.findById(5L)).thenReturn(Optional.of(paymentOnPaidOrder));
+        when(orderItemRepository.findByOrder_IdOrderByIdAsc(1L)).thenReturn(List.of());
+
+        PaymentResult result = new PaymentResult(GatewayOutcome.SUCCESS, null, null, null);
+        assertThatThrownBy(() -> paymentService.confirmSuccessfulPayment(5L, result))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PENDING_PAYMENT");
+
+        verify(orderService, never()).transitionTo(any(), any());
+        verify(inventoryRepository, never()).save(any());
     }
 }

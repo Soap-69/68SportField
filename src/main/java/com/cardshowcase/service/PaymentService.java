@@ -7,7 +7,9 @@ import com.cardshowcase.payment.GatewayOutcome;
 import com.cardshowcase.payment.PaymentConfirmationResult;
 import com.cardshowcase.payment.PaymentResult;
 import com.cardshowcase.repository.*;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -28,6 +30,9 @@ public class PaymentService {
     private final OrderItemRepository orderItemRepository;
     private final InventoryRepository inventoryRepository;
     private final OrderService orderService;
+
+    @PersistenceContext
+    private EntityManager em;
 
     // ── Initialization ────────────────────────────────────────────────
 
@@ -58,6 +63,12 @@ public class PaymentService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new IllegalStateException(
+                    "Cannot initialize payment for order " + orderId + " in status " +
+                    order.getStatus() + ". Order must be PENDING_PAYMENT.");
+        }
 
         Payment payment = Payment.builder()
                 .order(order)
@@ -139,6 +150,13 @@ public class PaymentService {
         Order order = payment.getOrder();
         List<OrderItem> items = orderItemRepository.findByOrder_IdOrderByIdAsc(order.getId());
 
+        // Guard: Order must be PENDING_PAYMENT for any new confirmation work
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new IllegalStateException(
+                    "Cannot confirm payment for order " + order.getId() + " in status " +
+                    order.getStatus() + ". Order must be PENDING_PAYMENT.");
+        }
+
         // 1. Revalidate all items: active status + stock (authoritative gate, same as checkout)
         for (OrderItem item : items) {
             ProductVariant v = item.getProductVariant();
@@ -172,6 +190,9 @@ public class PaymentService {
         // 3. Deduct inventory deterministically — optimistic lock may propagate here
         try {
             deductInventory(items);
+            // Force Hibernate to flush deferred UPDATEs now so any OLE is detected
+            // inside this catch block, before Payment is mutated or Order is transitioned.
+            em.flush();
         } catch (ObjectOptimisticLockingFailureException | OptimisticLockException e) {
             // NOT a business failure — entire transaction will roll back.
             // Payment stays in its pre-confirmation state (PENDING). Caller retries.
