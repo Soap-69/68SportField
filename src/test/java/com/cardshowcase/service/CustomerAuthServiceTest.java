@@ -27,6 +27,8 @@ class CustomerAuthServiceTest {
     @Autowired private CartItemRepository cartItemRepository;
     @Autowired private CartRepository cartRepository;
     @Autowired private CustomerAddressRepository addressRepository;
+    @Autowired private PaymentEventRepository paymentEventRepository;
+    @Autowired private PaymentRepository paymentRepository;
 
     private RegisterDTO validDto() {
         RegisterDTO dto = new RegisterDTO();
@@ -43,6 +45,8 @@ class CustomerAuthServiceTest {
     void cleanUp() {
         // Delete in FK dependency order so customer deleteAll doesn't hit referential constraints
         orderItemRepository.deleteAll();
+        paymentEventRepository.deleteAll();
+        paymentRepository.deleteAll();
         orderRepository.deleteAll();
         cartItemRepository.deleteAll();
         cartRepository.deleteAll();

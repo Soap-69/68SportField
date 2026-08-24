@@ -27,4 +27,7 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
 
     @Query("SELECT v.product.id, COALESCE(SUM(i.quantity), 0) FROM Inventory i JOIN i.variant v WHERE v.product.id IN :productIds GROUP BY v.product.id")
     List<Object[]> sumStockByProductIds(@Param("productIds") List<Long> productIds);
+
+    @Query("SELECT i FROM Inventory i WHERE i.variant.id = :variantId AND i.location.isActive = true ORDER BY i.location.id ASC")
+    List<Inventory> findActiveByVariantIdOrderByLocationIdAsc(@Param("variantId") Long variantId);
 }

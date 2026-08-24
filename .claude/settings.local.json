@@ -38,7 +38,12 @@
       "Read(//c/ProgramData/scoop/apps/openjdk/current/**)",
       "Bash(ls /c/Users/18572/scoop/apps/openjdk*/current/bin/)",
       "Bash(java -version)",
-      "Bash(export JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-21.0.7.6-hotspot\")"
+      "Bash(export JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-21.0.7.6-hotspot\")",
+      "Bash(java --version)",
+      "Bash(/c/Program Files/JetBrains/IntelliJ IDEA 2025.2.4/jbr/bin/java:*)",
+      "Bash(JAVA_HOME=\"/c/Program Files/JetBrains/IntelliJ IDEA 2025.2.4/jbr\" ./mvnw test -Dtest=\"PaymentIntegrationTest\" --no-transfer-progress)",
+      "Bash(JAVA_HOME=\"/c/Program Files/JetBrains/IntelliJ IDEA 2025.2.4/jbr\" ./mvnw test -Dtest=\"ManualPaymentGatewayProfileTest\" --no-transfer-progress)",
+      "Bash(JAVA_HOME=\"/c/Program Files/JetBrains/IntelliJ IDEA 2025.2.4/jbr\" ./mvnw test --no-transfer-progress)"
     ]
   }
 }
