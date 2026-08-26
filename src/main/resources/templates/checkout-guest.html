@@ -125,6 +125,8 @@
                  style="width:100%;box-sizing:border-box;border:1px solid #d2d2d7;border-radius:8px;
                         padding:10px 12px;font-size:15px;outline:none;">
         </div>
+        <div id="shippingMeta" th:data-subtotal="${subtotal}" style="display:none;"></div>
+        <div id="shippingNotice" style="margin-top:12px;font-size:14px;color:#6e6e73;font-style:italic;display:none;"></div>
       </fieldset>
 
       <!-- Billing -->
@@ -210,6 +212,47 @@
   sameBilling.addEventListener('change', function () {
     billingFields.style.display = this.checked ? 'none' : 'block';
   });
+
+  // ── Shipping notice ───────────────────────────────────────────
+
+  function updateGuestShippingNotice(state) {
+    var notice = document.getElementById('shippingNotice');
+    var meta   = document.getElementById('shippingMeta');
+    if (!notice) return;
+    var s = (state || '').trim();
+    if (!s) {
+      notice.textContent  = '';
+      notice.style.display = 'none';
+      return;
+    }
+    var subtotal = meta ? meta.dataset.subtotal : '0';
+    fetch('/api/shipping/quote?state=' + encodeURIComponent(s) +
+          '&subtotal=' + encodeURIComponent(subtotal))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === 'AK_HI_DEFERRED') {
+          notice.textContent   = 'Shipping to Alaska/Hawaii will be calculated and invoiced separately after your order is placed.';
+          notice.style.display = 'block';
+        } else if (data.status === 'REQUIRES_MANUAL_QUOTE') {
+          notice.textContent   = 'Shipping will be quoted and invoiced separately before fulfillment.';
+          notice.style.display = 'block';
+        } else {
+          notice.textContent   = '';
+          notice.style.display = 'none';
+        }
+      })
+      .catch(function () {
+        notice.textContent  = '';
+        notice.style.display = 'none';
+      });
+  }
+
+  var guestShipState = document.getElementById('shipState');
+  if (guestShipState) {
+    guestShipState.addEventListener('input', function () {
+      updateGuestShippingNotice(this.value);
+    });
+  }
 
   // Form submission
   document.getElementById('guestCheckoutForm').addEventListener('submit', function (e) {

@@ -5,6 +5,7 @@ import com.cardshowcase.exception.InsufficientStockException;
 import com.cardshowcase.model.dto.CheckoutRequest;
 import com.cardshowcase.model.entity.*;
 import com.cardshowcase.repository.*;
+import com.cardshowcase.shipping.ShippingQuote;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +37,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final CustomerAddressRepository customerAddressRepository;
+    private final ShippingService shippingService;
 
     @PersistenceContext
     private EntityManager em;
@@ -154,15 +156,23 @@ public class OrderService {
         String[] billingSnap  = resolveBillingSnapshot(req, customerId, shippingSnap);
 
         // 7. Calculate totals.
-        // Shipping: $0 placeholder — approved shipping rules are not yet defined.
-        // Do NOT invent a rate, percentage, or threshold. Replace this when rules are approved.
+        // Tax: $0 placeholder — deferred to a later week.
         BigDecimal subtotal = items.stream()
                 .map(i -> i.getVariant().getEffectivePrice()
                         .multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal shipping = BigDecimal.ZERO; // deferred
-        BigDecimal tax      = BigDecimal.ZERO; // deferred
-        BigDecimal total    = subtotal.add(shipping).add(tax);
+
+        // Shipping: apply frozen rules engine. AK/HI and REQUIRES_MANUAL_QUOTE both
+        // leave shipping_amount at $0 — no invented price is stored at checkout time.
+        ServiceLevel serviceLevel = req.getServiceLevel() != null
+                ? req.getServiceLevel() : ServiceLevel.GROUND;
+        ShippingQuote shippingQuote = shippingService.calculateQuote(
+                nvl(shippingSnap[5]), serviceLevel, subtotal);
+        BigDecimal shipping = shippingQuote.isResolved()
+                ? shippingQuote.amount() : BigDecimal.ZERO;
+
+        BigDecimal tax   = BigDecimal.ZERO; // deferred
+        BigDecimal total = subtotal.add(shipping).add(tax);
 
         // 8. Persist order
         Order order = Order.builder()
@@ -222,8 +232,14 @@ public class OrderService {
         // 10. Clear cart
         cartService.clearCart(cart);
 
-        log.info("Order created: {} (customer={}, guest={})",
-                order.getOrderNumber(), customerId, order.getGuestEmail());
+        // 11. Initialize Shipment for continental US orders at checkout time.
+        //     AK/HI Shipments are created later, upon Order transitioning to PAID.
+        if (!shippingQuote.isAkHiDeferred()) {
+            shippingService.initializeShipmentForOrder(order, serviceLevel, shippingQuote);
+        }
+
+        log.info("Order created: {} (customer={}, guest={}, shippingQuote={})",
+                order.getOrderNumber(), customerId, order.getGuestEmail(), shippingQuote.status());
         return order;
     }
 
@@ -243,7 +259,44 @@ public class OrderService {
         order.setStatus(newStatus);
         Order saved = orderRepository.save(order);
         log.info("Order {} transitioned {} → {}", order.getOrderNumber(), oldStatus, newStatus);
+
+        // AK/HI orders: create Shipment (QUOTE_REQUIRED) immediately upon becoming PAID.
+        // Continental US Shipments are created at checkout time (OrderService.checkout).
+        if (newStatus == OrderStatus.PAID
+                && shippingService.isAkHi(order.getShippingState())) {
+            shippingService.initializeAkHiShipment(saved);
+        }
+
         return saved;
+    }
+
+    // ── Fulfillment gating ────────────────────────────────────────────
+
+    /**
+     * Returns true only when the order is fully ready for physical fulfillment.
+     *
+     * Conditions (all must be true):
+     *   1. Order.status == PAID
+     *   2. Shipment.shippingPaymentStatus is NOT_REQUIRED, PAID, or WAIVED
+     *      (i.e. no outstanding supplemental shipping charge)
+     *
+     * Order=PAID alone is NOT sufficient for AK/HI orders — the supplemental
+     * shipping charge must also be resolved before fulfillment can begin.
+     *
+     * This method has no callers or UI this week; it exists so future weeks
+     * (fulfillment, admin dashboards) have a single source of truth, and
+     * additional prerequisites can be added here without touching ShippingPaymentStatus.
+     */
+    @Transactional(readOnly = true)
+    public boolean isReadyForFulfillment(Order order) {
+        if (order.getStatus() != OrderStatus.PAID) {
+            return false;
+        }
+        return shippingService.findByOrderId(order.getId())
+                .map(s -> s.getShippingPaymentStatus() == ShippingPaymentStatus.NOT_REQUIRED
+                        || s.getShippingPaymentStatus() == ShippingPaymentStatus.PAID
+                        || s.getShippingPaymentStatus() == ShippingPaymentStatus.WAIVED)
+                .orElse(false);
     }
 
     // ── Queries ───────────────────────────────────────────────────────

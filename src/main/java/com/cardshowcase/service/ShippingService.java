@@ -1,0 +1,208 @@
+package com.cardshowcase.service;
+
+import com.cardshowcase.model.entity.*;
+import com.cardshowcase.repository.ShipmentRepository;
+import com.cardshowcase.shipping.ShippingQuote;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Shipping rules engine and Shipment lifecycle manager.
+ *
+ * Role boundary: ShippingService CALCULATES/DETERMINES shipping requirements
+ * and manages the Shipment aggregate. It must NOT mutate Order or Payment state
+ * directly — all state changes to those aggregates remain with their own services.
+ *
+ * Frozen continental US rules (do not invent other values):
+ *   AK/HI                           → AK_HI_DEFERRED; quoted separately after PAID
+ *   Continental US, NEXT_DAY_AIR    → $150 flat surcharge (regardless of subtotal)
+ *   Continental US, GROUND, >= $500 → $0 (free shipping)
+ *   Continental US, GROUND, < $500  → REQUIRES_MANUAL_QUOTE (no approved price)
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ShippingService {
+
+    static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("500.00");
+    static final BigDecimal NEXT_DAY_AIR_SURCHARGE  = new BigDecimal("150.00");
+    private static final Set<String> AK_HI_STATES   = Set.of("AK", "HI");
+
+    private final ShipmentRepository shipmentRepository;
+
+    // ── Quote calculation (pure — no side effects) ────────────────────
+
+    /**
+     * Applies the frozen continental US shipping rules.
+     * AK/HI orders bypass the continental pricing table entirely.
+     * No money amounts are invented for cases without an approved price.
+     */
+    public ShippingQuote calculateQuote(String destinationState,
+                                        ServiceLevel serviceLevel,
+                                        BigDecimal subtotal) {
+        if (isAkHi(destinationState)) {
+            return ShippingQuote.akHiDeferred();
+        }
+        if (serviceLevel == ServiceLevel.NEXT_DAY_AIR) {
+            // $150 flat surcharge, regardless of subtotal
+            return ShippingQuote.resolved(NEXT_DAY_AIR_SURCHARGE);
+        }
+        // Continental US, Ground
+        if (subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0) {
+            return ShippingQuote.resolved(BigDecimal.ZERO);
+        }
+        // Ground < $500: no approved price — do not invent one
+        return ShippingQuote.requiresManualQuote();
+    }
+
+    public boolean isAkHi(String state) {
+        return state != null && AK_HI_STATES.contains(state.trim().toUpperCase());
+    }
+
+    // ── Shipment initialization (orchestrated by OrderService) ────────
+
+    /**
+     * Creates the Shipment for a continental US order at checkout time.
+     * RESOLVED quotes produce NOT_REQUIRED; REQUIRES_MANUAL_QUOTE produces QUOTE_REQUIRED.
+     * Must NOT be called for AK/HI orders.
+     */
+    @Transactional
+    public Shipment initializeShipmentForOrder(Order order, ServiceLevel serviceLevel,
+                                               ShippingQuote quote) {
+        if (quote.isAkHiDeferred()) {
+            throw new IllegalArgumentException(
+                    "initializeShipmentForOrder must not be called for AK/HI order " +
+                    order.getId() + ". Use initializeAkHiShipment after PAID transition.");
+        }
+        ShippingPaymentStatus status = quote.isResolved()
+                ? ShippingPaymentStatus.NOT_REQUIRED
+                : ShippingPaymentStatus.QUOTE_REQUIRED;
+
+        Shipment shipment = Shipment.builder()
+                .order(order)
+                .serviceLevel(serviceLevel)
+                .quotedShippingAmount(quote.isResolved() ? quote.amount() : null)
+                .shippingPaymentStatus(status)
+                .build();
+        shipment = shipmentRepository.save(shipment);
+        log.info("Shipment {} initialized for order {} (serviceLevel={}, status={})",
+                shipment.getId(), order.getOrderNumber(), serviceLevel, status);
+        return shipment;
+    }
+
+    /**
+     * Creates a Shipment for an AK/HI order immediately after the Order transitions to PAID.
+     * Idempotent: returns the existing Shipment if already created.
+     * service_level defaults to GROUND — the admin determines the actual carrier service
+     * when entering the shipping quote.
+     */
+    @Transactional
+    public Shipment initializeAkHiShipment(Order order) {
+        Optional<Shipment> existing = shipmentRepository.findByOrder_Id(order.getId());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        Shipment shipment = Shipment.builder()
+                .order(order)
+                .serviceLevel(ServiceLevel.GROUND)
+                .shippingPaymentStatus(ShippingPaymentStatus.QUOTE_REQUIRED)
+                .build();
+        shipment = shipmentRepository.save(shipment);
+        log.info("AK/HI Shipment {} created for order {} → QUOTE_REQUIRED",
+                shipment.getId(), order.getOrderNumber());
+        return shipment;
+    }
+
+    // ── Admin operations ──────────────────────────────────────────────
+
+    /**
+     * Records the actual shipping cost (QUOTE_REQUIRED → QUOTED → PAYMENT_PENDING).
+     * The transition to PAYMENT_PENDING is automatic — no separate step needed.
+     * Requires ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced at controller layer).
+     */
+    @Transactional
+    public Shipment recordQuote(Long orderId, BigDecimal amount) {
+        Shipment shipment = loadByOrderId(orderId);
+        if (!shipment.getShippingPaymentStatus().canTransitionTo(ShippingPaymentStatus.QUOTED)) {
+            throw new IllegalStateException(
+                    "Shipment for order " + orderId + " cannot accept a quote in status " +
+                    shipment.getShippingPaymentStatus() + ". Must be QUOTE_REQUIRED.");
+        }
+        shipment.setQuotedShippingAmount(amount);
+        shipment.setQuotedAt(LocalDateTime.now());
+        shipment.setShippingPaymentStatus(ShippingPaymentStatus.QUOTED);
+        // Auto-advance: quote is immediately ready for payment collection
+        shipment.setShippingPaymentStatus(ShippingPaymentStatus.PAYMENT_PENDING);
+        shipment = shipmentRepository.save(shipment);
+        log.info("Shipment {} (order {}): quoted={}, auto-transitioned → PAYMENT_PENDING",
+                shipment.getId(), orderId, amount);
+        return shipment;
+    }
+
+    /**
+     * Confirms supplemental shipping payment received out of band (PAYMENT_PENDING → PAID).
+     *
+     * CRITICAL invariant — this method must NOT:
+     *   - create a Payment entity
+     *   - call a PaymentGateway
+     *   - create a PaymentEvent
+     *   - modify Order status or Week 5 Payment records in any way
+     * It only mutates the Shipment's shipping_payment_status.
+     *
+     * Requires ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced at controller layer).
+     */
+    @Transactional
+    public Shipment confirmShippingPaymentReceived(Long orderId) {
+        Shipment shipment = loadByOrderId(orderId);
+        if (!shipment.getShippingPaymentStatus().canTransitionTo(ShippingPaymentStatus.PAID)) {
+            throw new IllegalStateException(
+                    "Shipment for order " + orderId + " cannot be marked PAID in status " +
+                    shipment.getShippingPaymentStatus() + ". Must be PAYMENT_PENDING.");
+        }
+        shipment.setShippingPaymentStatus(ShippingPaymentStatus.PAID);
+        shipment.setShippingPaidAt(LocalDateTime.now());
+        shipment = shipmentRepository.save(shipment);
+        log.info("Shipment {} (order {}): supplemental shipping payment confirmed PAID",
+                shipment.getId(), orderId);
+        return shipment;
+    }
+
+    /**
+     * Records carrier tracking info. Sets carrier, tracking_number, and shipped_at = now().
+     * No carrier API validation — stores whatever the admin provides.
+     * Requires ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced at controller layer).
+     */
+    @Transactional
+    public Shipment recordTracking(Long orderId, String carrier, String trackingNumber) {
+        Shipment shipment = loadByOrderId(orderId);
+        shipment.setCarrier(carrier);
+        shipment.setTrackingNumber(trackingNumber);
+        shipment.setShippedAt(LocalDateTime.now());
+        shipment = shipmentRepository.save(shipment);
+        log.info("Shipment {} (order {}): tracking recorded carrier={}, number={}",
+                shipment.getId(), orderId, carrier, trackingNumber);
+        return shipment;
+    }
+
+    // ── Queries ───────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public Optional<Shipment> findByOrderId(Long orderId) {
+        return shipmentRepository.findByOrder_Id(orderId);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────
+
+    private Shipment loadByOrderId(Long orderId) {
+        return shipmentRepository.findByOrder_Id(orderId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Shipment not found for order: " + orderId));
+    }
+}

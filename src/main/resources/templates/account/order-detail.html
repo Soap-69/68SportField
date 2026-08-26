@@ -110,7 +110,39 @@
               </div>
               <div style="display:flex;justify-content:space-between;padding:6px 0;">
                 <span style="font-size:14px;color:rgba(255,255,255,0.5);">Shipping</span>
-                <span style="font-size:14px;color:rgba(255,255,255,0.5);font-style:italic;">Calculated at fulfillment</span>
+                <!-- No Shipment record (pre-Week-6 legacy orders) -->
+                <span th:if="${shipment == null}"
+                      style="font-size:14px;color:rgba(255,255,255,0.8);"
+                      th:text="${'$' + #numbers.formatDecimal(order.shippingAmount, 1, 2)}"></span>
+                <!-- Shipment exists: branch on ShippingPaymentStatus -->
+                <span th:if="${shipment != null}" th:switch="${shipment.shippingPaymentStatus.name()}">
+                  <!-- Resolved at checkout (free Ground or NDA surcharge) -->
+                  <span th:case="'NOT_REQUIRED'"
+                        style="font-size:14px;color:rgba(255,255,255,0.8);"
+                        th:text="${order.shippingAmount.signum() == 0
+                                  ? 'Free'
+                                  : '$' + #numbers.formatDecimal(order.shippingAmount, 1, 2)}"></span>
+                  <!-- Awaiting admin quote (AK/HI or Ground below free-shipping threshold) -->
+                  <span th:case="'QUOTE_REQUIRED'"
+                        style="font-size:14px;color:rgba(255,255,255,0.5);font-style:italic;">Shipping quote pending</span>
+                  <!-- Quote given, waiting for customer to pay supplemental shipping charge -->
+                  <span th:case="'QUOTED'"
+                        style="font-size:14px;color:rgba(255,255,255,0.5);font-style:italic;"
+                        th:text="${'Awaiting payment \u2014 $' + #numbers.formatDecimal(shipment.quotedShippingAmount, 1, 2)}"></span>
+                  <!-- Payment initiated, confirmation pending -->
+                  <span th:case="'PAYMENT_PENDING'"
+                        style="font-size:14px;color:rgba(255,255,255,0.5);font-style:italic;"
+                        th:text="${'Awaiting payment \u2014 $' + #numbers.formatDecimal(shipment.quotedShippingAmount, 1, 2)}"></span>
+                  <!-- Supplemental shipping fully paid -->
+                  <span th:case="'PAID'"
+                        style="font-size:14px;color:rgba(255,255,255,0.8);"
+                        th:text="${'$' + #numbers.formatDecimal(shipment.quotedShippingAmount, 1, 2)}"></span>
+                  <!-- Shipping waived by admin -->
+                  <span th:case="'WAIVED'"
+                        style="font-size:14px;color:rgba(255,255,255,0.8);">$0.00 &#x2014; Waived</span>
+                  <span th:case="*"
+                        style="font-size:14px;color:rgba(255,255,255,0.5);font-style:italic;">Calculated at fulfillment</span>
+                </span>
               </div>
               <div style="display:flex;justify-content:space-between;padding:6px 0;">
                 <span style="font-size:14px;color:rgba(255,255,255,0.5);">Tax</span>

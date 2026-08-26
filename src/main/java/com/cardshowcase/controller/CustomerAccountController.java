@@ -5,9 +5,11 @@ import com.cardshowcase.model.dto.ProfileUpdateDTO;
 import com.cardshowcase.model.entity.Customer;
 import com.cardshowcase.model.entity.CustomerAddress;
 import com.cardshowcase.model.entity.Order;
+import com.cardshowcase.model.entity.Shipment;
 import com.cardshowcase.service.CustomerAddressService;
 import com.cardshowcase.service.CustomerAuthService;
 import com.cardshowcase.service.OrderService;
+import com.cardshowcase.service.ShippingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -26,6 +28,7 @@ public class CustomerAccountController {
     private final CustomerAuthService customerAuthService;
     private final CustomerAddressService addressService;
     private final OrderService orderService;
+    private final ShippingService shippingService;
 
     // ── Dashboard ────────────────────────────────────────────────
 
@@ -187,7 +190,10 @@ public class CustomerAccountController {
         Customer customer = customerAuthService.getCurrentCustomer();
         try {
             Order order = orderService.findByIdForCustomer(id, customer.getId());
+            // Load Shipment separately to avoid lazy-initialization on the detached Order entity.
+            Shipment shipment = shippingService.findByOrderId(order.getId()).orElse(null);
             model.addAttribute("order", order);
+            model.addAttribute("shipment", shipment);
             return "account/order-detail";
         } catch (SecurityException e) {
             redirectAttributes.addFlashAttribute("errorMessage", "You do not have access to that order.");

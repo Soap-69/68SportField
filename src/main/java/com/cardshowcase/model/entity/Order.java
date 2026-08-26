@@ -128,6 +128,10 @@ public class Order {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
 
+    // ── Shipment (1:1, read-only navigation — Week 6) ─────────────
+    @OneToOne(mappedBy = "order", fetch = FetchType.LAZY)
+    private Shipment shipment;
+
     // ── Items ──────────────────────────────────────────────────────
     @Builder.Default
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

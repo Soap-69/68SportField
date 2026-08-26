@@ -1,5 +1,6 @@
 package com.cardshowcase.model.dto;
 
+import com.cardshowcase.model.entity.ServiceLevel;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -22,6 +23,13 @@ public class CheckoutRequest {
     /** Client-generated idempotency key (UUID recommended). Required. */
     @NotBlank
     private String idempotencyKey;
+
+    /**
+     * Requested service level. Defaults to GROUND.
+     * Ignored for client-supplied values: Jackson's @JsonIgnoreProperties(ignoreUnknown=true)
+     * allows existing callers to omit this field — they'll get GROUND automatically.
+     */
+    private ServiceLevel serviceLevel = ServiceLevel.GROUND;
 
     // ── Guest contact (required for guests, ignored for logged-in) ──
     private String guestName;

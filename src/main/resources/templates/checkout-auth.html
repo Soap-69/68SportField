@@ -46,7 +46,8 @@
                  style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;
                         border:1px solid #d2d2d7;border-radius:10px;margin-bottom:10px;cursor:pointer;"
                  th:onclick="|selectShipping(${addr.id})|"
-                 th:id="|ship-card-${addr.id}|">
+                 th:id="|ship-card-${addr.id}|"
+                 th:data-state="${addr.state}">
               <input type="radio" name="shipChoice" th:value="${addr.id}"
                      th:id="|ship-radio-${addr.id}|"
                      th:checked="${stat.first}"
@@ -248,9 +249,10 @@
           <span style="font-size:14px;"
                 th:text="${'$' + #numbers.formatDecimal(subtotal, 1, 2)}"></span>
         </div>
+        <div id="shippingMeta" th:data-subtotal="${subtotal}" style="display:none;"></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
           <span style="font-size:14px;color:#6e6e73;">Shipping</span>
-          <span style="font-size:14px;color:#6e6e73;font-style:italic;">Calculated at fulfillment</span>
+          <span id="shippingDisplay" style="font-size:14px;color:#6e6e73;font-style:italic;"></span>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
           <span style="font-size:14px;color:#6e6e73;">Tax</span>
@@ -296,12 +298,56 @@
     }
   }
 
+  // ── Shipping display ──────────────────────────────────────────
+
+  function setShippingText(span, text, italic) {
+    span.textContent     = text;
+    span.style.color     = italic ? '#6e6e73' : '';
+    span.style.fontStyle = italic ? 'italic'  : 'normal';
+  }
+
+  function updateShippingDisplay(state) {
+    var span = document.getElementById('shippingDisplay');
+    if (!span) return;
+    var s = (state || '').trim();
+    if (!s) {
+      setShippingText(span, 'Calculated at fulfillment', true);
+      return;
+    }
+    var meta     = document.getElementById('shippingMeta');
+    var subtotal = meta ? meta.dataset.subtotal : '0';
+    fetch('/api/shipping/quote?state=' + encodeURIComponent(s) +
+          '&subtotal=' + encodeURIComponent(subtotal))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === 'AK_HI_DEFERRED') {
+          setShippingText(span, 'Calculated separately \u2014 invoiced after order is placed', true);
+        } else if (data.status === 'RESOLVED' && data.amount != null) {
+          var amt = parseFloat(data.amount);
+          setShippingText(span, amt === 0 ? '$0.00 \u2014 Free' : '$' + amt.toFixed(2), amt === 0);
+        } else {
+          setShippingText(span, 'Contact us for a quote.', true);
+        }
+      })
+      .catch(function () {
+        setShippingText(span, 'Calculated at fulfillment', true);
+      });
+  }
+
   window.selectShipping = function (value) {
     var radio = document.getElementById('ship-radio-' + value);
     if (radio) radio.checked = true;
     highlightCard('ship', value);
     var newFields = document.getElementById('newShippingFields');
     if (newFields) newFields.style.display = (value === 'new') ? 'block' : 'none';
+
+    if (value === 'new') {
+      var stateInput = document.getElementById('shipState');
+      updateShippingDisplay(stateInput ? stateInput.value : '');
+    } else {
+      var card = document.getElementById('ship-card-' + value);
+      updateShippingDisplay(card ? card.dataset.state : '');
+    }
   };
 
   window.selectBilling = function (value) {
@@ -312,11 +358,33 @@
     if (newFields) newFields.style.display = (value === 'new') ? 'block' : 'none';
   };
 
-  // Highlight the initially-checked shipping card
+  // Highlight the initially-checked shipping card and set initial shipping display
   (function () {
     var checked = document.querySelector('input[name="shipChoice"]:checked');
-    if (checked) highlightCard('ship', checked.value);
+    if (checked) {
+      highlightCard('ship', checked.value);
+      if (checked.value === 'new') {
+        var stateInput = document.getElementById('shipState');
+        updateShippingDisplay(stateInput ? stateInput.value : '');
+      } else {
+        var card = document.getElementById('ship-card-' + checked.value);
+        updateShippingDisplay(card ? card.dataset.state : '');
+      }
+    } else {
+      updateShippingDisplay('');
+    }
   })();
+
+  // Update shipping display when typing a new address state
+  var shipStateInput = document.getElementById('shipState');
+  if (shipStateInput) {
+    shipStateInput.addEventListener('input', function () {
+      var checked = document.querySelector('input[name="shipChoice"]:checked');
+      if (!checked || checked.value === 'new') {
+        updateShippingDisplay(this.value);
+      }
+    });
+  }
 
   // ── Same-as-shipping billing toggle ──────────────────────────
 

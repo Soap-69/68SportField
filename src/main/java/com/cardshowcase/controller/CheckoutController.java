@@ -20,8 +20,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CheckoutController {
 
-    // Shipping rules are not yet approved. Display $0 as a placeholder until defined.
-
     private final CartService cartService;
     private final CustomerAddressService addressService;
 
@@ -60,7 +58,7 @@ public class CheckoutController {
         List<CartItem>       items     = cartService.getItemsForCart(cart);
         List<CustomerAddress> addresses = addressService.getAddressesByCustomer(principal.getId());
         BigDecimal subtotal  = cartService.getCartSubtotal(cart);
-        BigDecimal shipping  = BigDecimal.ZERO; // deferred: approved shipping rules not yet defined
+        BigDecimal shipping  = BigDecimal.ZERO; // deferred
         BigDecimal tax       = BigDecimal.ZERO; // deferred
         BigDecimal total     = subtotal.add(shipping).add(tax);
 
@@ -81,16 +79,15 @@ public class CheckoutController {
      */
     @GetMapping("/checkout/guest")
     public String guestCheckout(@AuthenticationPrincipal CustomerPrincipal principal,
-                                HttpServletRequest request) {
+                                HttpServletRequest request, Model model) {
         if (principal != null) {
             return "redirect:/checkout";
         }
-        boolean hasItems = cartService.findExistingCart(request, null)
-                .map(cart -> cartService.getCartItemCount(cart) > 0)
-                .orElse(false);
-        if (!hasItems) {
+        Cart guestCart = cartService.findExistingCart(request, null).orElse(null);
+        if (guestCart == null || cartService.getCartItemCount(guestCart) == 0) {
             return "redirect:/cart";
         }
+        model.addAttribute("subtotal", cartService.getCartSubtotal(guestCart));
         return "checkout-guest";
     }
 }
