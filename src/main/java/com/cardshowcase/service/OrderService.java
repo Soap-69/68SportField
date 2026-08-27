@@ -292,10 +292,9 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PAID) {
             return false;
         }
+        // Delegates to ShippingPaymentStatus.isFulfillmentReady() — the single source of truth.
         return shippingService.findByOrderId(order.getId())
-                .map(s -> s.getShippingPaymentStatus() == ShippingPaymentStatus.NOT_REQUIRED
-                        || s.getShippingPaymentStatus() == ShippingPaymentStatus.PAID
-                        || s.getShippingPaymentStatus() == ShippingPaymentStatus.WAIVED)
+                .map(s -> s.getShippingPaymentStatus().isFulfillmentReady())
                 .orElse(false);
     }
 

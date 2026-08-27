@@ -108,4 +108,41 @@ class ShippingQuoteApiTest extends BaseIntegrationTest {
                         .param("subtotal", "250.00"))
                 .andExpect(status().isOk());
     }
+
+    // ── Input validation ──────────────────────────────────────────────
+
+    @Test
+    void blankState_returns400() throws Exception {
+        mockMvc.perform(get("/api/shipping/quote")
+                        .param("state", "")
+                        .param("subtotal", "100.00"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void whitespaceOnlyState_returns400() throws Exception {
+        mockMvc.perform(get("/api/shipping/quote")
+                        .param("state", "   ")
+                        .param("subtotal", "100.00"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void negativeSubtotal_returns400() throws Exception {
+        mockMvc.perform(get("/api/shipping/quote")
+                        .param("state", "NY")
+                        .param("subtotal", "-0.01"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void zeroSubtotal_isValid() throws Exception {
+        // $0 subtotal is a valid edge case (empty cart cleared after add — shouldn't happen
+        // in practice but must not 400)
+        mockMvc.perform(get("/api/shipping/quote")
+                        .param("state", "CA")
+                        .param("subtotal", "0.00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REQUIRES_MANUAL_QUOTE"));
+    }
 }

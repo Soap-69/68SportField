@@ -202,6 +202,7 @@ class OrderDetailPageTest extends BaseIntegrationTest {
 
         confirmPayment(orderId);
         shippingService.recordQuote(orderId, new BigDecimal("12.50"));
+        shippingService.requestShippingPayment(orderId);
 
         assertDetailContains(customer, orderId, "Awaiting payment", "12.50");
     }
@@ -217,6 +218,7 @@ class OrderDetailPageTest extends BaseIntegrationTest {
 
         confirmPayment(orderId);
         shippingService.recordQuote(orderId, new BigDecimal("18.75"));
+        shippingService.requestShippingPayment(orderId);
         shippingService.confirmShippingPaymentReceived(orderId);
 
         assertDetailContains(customer, orderId, "$18.75");

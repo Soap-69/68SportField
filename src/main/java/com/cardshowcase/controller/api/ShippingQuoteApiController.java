@@ -4,10 +4,12 @@ import com.cardshowcase.model.entity.ServiceLevel;
 import com.cardshowcase.service.ShippingService;
 import com.cardshowcase.shipping.ShippingQuote;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 
@@ -38,6 +40,14 @@ public class ShippingQuoteApiController {
             @RequestParam BigDecimal subtotal,
             @RequestParam(defaultValue = "GROUND") ServiceLevel serviceLevel) {
 
+        if (state == null || state.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "state must not be blank");
+        }
+        if (subtotal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "subtotal must not be negative");
+        }
         return shippingService.calculateQuote(state, serviceLevel, subtotal);
     }
 }

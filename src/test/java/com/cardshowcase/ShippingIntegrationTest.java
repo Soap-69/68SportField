@@ -111,8 +111,16 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         return "/admin/api/orders/" + orderId + "/shipment/quote";
     }
 
+    private String requestPaymentUrl(long orderId) {
+        return "/admin/api/orders/" + orderId + "/shipment/request-payment";
+    }
+
     private String confirmPaymentUrl(long orderId) {
         return "/admin/api/orders/" + orderId + "/shipment/confirm-payment";
+    }
+
+    private String trackingUrl(long orderId) {
+        return "/admin/api/orders/" + orderId + "/shipment/tracking";
     }
 
     // ── 1. Full AK/HI flow ────────────────────────────────────────────
@@ -137,20 +145,30 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         Order paidOrder = orderRepository.findById(order.getId()).orElseThrow();
         assertThat(orderService.isReadyForFulfillment(paidOrder)).isFalse();
 
-        // Admin enters quote: QUOTE_REQUIRED → PAYMENT_PENDING (auto, via recordQuote)
+        // Admin enters quote: QUOTE_REQUIRED → QUOTED (stops here)
         mockMvc.perform(post(quoteUrl(order.getId()))
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("amount", "85.00"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.shippingPaymentStatus", is("PAYMENT_PENDING")))
+                .andExpect(jsonPath("$.shippingPaymentStatus", is("QUOTED")))
                 .andExpect(jsonPath("$.quotedShippingAmount", comparesEqualTo(85.00)));
 
         Shipment afterQuote = shipmentRepository.findByOrder_Id(order.getId()).orElseThrow();
-        assertThat(afterQuote.getShippingPaymentStatus()).isEqualTo(ShippingPaymentStatus.PAYMENT_PENDING);
+        assertThat(afterQuote.getShippingPaymentStatus()).isEqualTo(ShippingPaymentStatus.QUOTED);
         assertThat(afterQuote.getQuotedShippingAmount()).isEqualByComparingTo("85.00");
         assertThat(afterQuote.getQuotedAt()).isNotNull();
+
+        // isReadyForFulfillment: still false (QUOTED)
+        assertThat(orderService.isReadyForFulfillment(paidOrder)).isFalse();
+
+        // Admin requests payment: QUOTED → PAYMENT_PENDING
+        mockMvc.perform(post(requestPaymentUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shippingPaymentStatus", is("PAYMENT_PENDING")));
 
         // isReadyForFulfillment: still false (PAYMENT_PENDING)
         assertThat(orderService.isReadyForFulfillment(paidOrder)).isFalse();
@@ -213,8 +231,9 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         // PAID but outstanding shipping quote → not ready
         assertThat(orderService.isReadyForFulfillment(paidOrder)).isFalse();
 
-        // Record quote and confirm → ready
+        // Record quote (→ QUOTED), request payment (→ PAYMENT_PENDING), confirm → ready
         shippingService.recordQuote(order.getId(), new BigDecimal("15.00"));
+        shippingService.requestShippingPayment(order.getId());
         shippingService.confirmShippingPaymentReceived(order.getId());
         assertThat(orderService.isReadyForFulfillment(paidOrder)).isTrue();
     }
@@ -249,6 +268,7 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         Order order = createOrderWithState("ship-auth-p-" + ts, "HI", 3);
         confirmPayment(order.getId());
         shippingService.recordQuote(order.getId(), new BigDecimal("120.00"));
+        shippingService.requestShippingPayment(order.getId());
 
         // Anonymous → redirect
         mockMvc.perform(post(confirmPaymentUrl(order.getId())).with(csrf()))
@@ -305,6 +325,7 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         Order order = createOrderWithState("ship-isolation-" + ts, "AK", 3);
         confirmPayment(order.getId());
         shippingService.recordQuote(order.getId(), new BigDecimal("99.00"));
+        shippingService.requestShippingPayment(order.getId());
 
         long paymentCountBefore = paymentRepository.count();
         long eventCountBefore   = paymentEventRepository.count();
@@ -327,6 +348,116 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         com.cardshowcase.model.entity.Payment payment =
                 paymentRepository.findByOrder_Id(order.getId()).orElseThrow();
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+    }
+
+    // ── Issue 1 regressions: recordTracking fulfillment-readiness guard ──
+
+    @Test
+    void recordTracking_quoteRequired_rejected() throws Exception {
+        // Ground < $500 → QUOTE_REQUIRED at checkout; pay product price → PAID order
+        Order order = createOrderWithState("ship-trk-qr-" + ts, "NY", 3);
+        confirmPayment(order.getId()); // order = PAID, shipment = QUOTE_REQUIRED
+
+        // recordTracking must be rejected: shipping not yet resolved
+        mockMvc.perform(post(trackingUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("carrier", "UPS", "trackingNumber", "1Z999"))))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void recordTracking_paymentPending_rejected() throws Exception {
+        Order order = createOrderWithState("ship-trk-pp-" + ts, "AK", 3);
+        confirmPayment(order.getId());
+        shippingService.recordQuote(order.getId(), new BigDecimal("30.00"));
+        shippingService.requestShippingPayment(order.getId()); // → PAYMENT_PENDING
+
+        mockMvc.perform(post(trackingUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("carrier", "FedEx", "trackingNumber", "123456"))))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void recordTracking_pendingPaymentOrder_rejected() throws Exception {
+        // Order still PENDING_PAYMENT (not yet paid at all)
+        Order order = createOrderWithState("ship-trk-ord-" + ts, "MA", 10);
+        // Shipment is NOT_REQUIRED but order is PENDING_PAYMENT → not fulfillment-ready
+
+        mockMvc.perform(post(trackingUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("carrier", "UPS", "trackingNumber", "1Z999"))))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    // ── Issue 2 regressions: QUOTED is now observable ─────────────────
+
+    @Test
+    void recordQuote_stopsAtQuoted_notPaymentPending() throws Exception {
+        Order order = createOrderWithState("ship-quoted-" + ts, "HI", 3);
+        confirmPayment(order.getId());
+
+        mockMvc.perform(post(quoteUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", "45.00"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shippingPaymentStatus", is("QUOTED")));
+
+        Shipment s = shipmentRepository.findByOrder_Id(order.getId()).orElseThrow();
+        assertThat(s.getShippingPaymentStatus()).isEqualTo(ShippingPaymentStatus.QUOTED);
+    }
+
+    @Test
+    void requestShippingPayment_quotedToPaymentPending() throws Exception {
+        Order order = createOrderWithState("ship-rsp-" + ts, "AK", 3);
+        confirmPayment(order.getId());
+        shippingService.recordQuote(order.getId(), new BigDecimal("55.00"));
+
+        mockMvc.perform(post(requestPaymentUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shippingPaymentStatus", is("PAYMENT_PENDING")));
+    }
+
+    @Test
+    void requestShippingPayment_requiresQuotedStatus() throws Exception {
+        // Calling request-payment before recordQuote → still QUOTE_REQUIRED → 422
+        Order order = createOrderWithState("ship-rsp-bad-" + ts, "AK", 3);
+        confirmPayment(order.getId()); // shipment = QUOTE_REQUIRED
+
+        mockMvc.perform(post(requestPaymentUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void requestShippingPayment_requiresAdminAuth() throws Exception {
+        Order order = createOrderWithState("ship-rsp-auth-" + ts, "AK", 3);
+        confirmPayment(order.getId());
+        shippingService.recordQuote(order.getId(), new BigDecimal("60.00"));
+
+        // Anonymous → redirect
+        mockMvc.perform(post(requestPaymentUrl(order.getId())).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        // Non-admin → 403
+        mockMvc.perform(post(requestPaymentUrl(order.getId()))
+                        .with(user("customer").roles("CUSTOMER"))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
     }
 
     // ── 7. Next Day Air surcharge applied at checkout ─────────────────

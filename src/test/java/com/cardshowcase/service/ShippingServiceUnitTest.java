@@ -154,4 +154,36 @@ class ShippingServiceUnitTest {
         assertThat(ShippingPaymentStatus.QUOTE_REQUIRED.canTransitionTo(ShippingPaymentStatus.PAID))
                 .isFalse();
     }
+
+    // ── isFulfillmentReady ────────────────────────────────────────────
+
+    @Test
+    void isFulfillmentReady_notRequired_true() {
+        assertThat(ShippingPaymentStatus.NOT_REQUIRED.isFulfillmentReady()).isTrue();
+    }
+
+    @Test
+    void isFulfillmentReady_paid_true() {
+        assertThat(ShippingPaymentStatus.PAID.isFulfillmentReady()).isTrue();
+    }
+
+    @Test
+    void isFulfillmentReady_waived_true() {
+        assertThat(ShippingPaymentStatus.WAIVED.isFulfillmentReady()).isTrue();
+    }
+
+    @Test
+    void isFulfillmentReady_quoteRequired_false() {
+        assertThat(ShippingPaymentStatus.QUOTE_REQUIRED.isFulfillmentReady()).isFalse();
+    }
+
+    @Test
+    void isFulfillmentReady_quoted_false() {
+        assertThat(ShippingPaymentStatus.QUOTED.isFulfillmentReady()).isFalse();
+    }
+
+    @Test
+    void isFulfillmentReady_paymentPending_false() {
+        assertThat(ShippingPaymentStatus.PAYMENT_PENDING.isFulfillmentReady()).isFalse();
+    }
 }

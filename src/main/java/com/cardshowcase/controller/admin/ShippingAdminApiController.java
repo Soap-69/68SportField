@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * Admin API for shipment management: quote entry, payment confirmation, tracking.
+ * Admin API for shipment management: quote entry, payment request, payment confirmation, tracking.
  *
  * All endpoints:
  *  - Require ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced by /admin/** security filter chain)
@@ -35,7 +35,8 @@ public class ShippingAdminApiController {
 
     /**
      * POST /admin/api/orders/{orderId}/shipment/quote
-     * Records the actual shipping cost: QUOTE_REQUIRED → QUOTED → PAYMENT_PENDING (auto).
+     * Records the actual shipping cost: QUOTE_REQUIRED → QUOTED.
+     * Stops at QUOTED — call /request-payment to advance to PAYMENT_PENDING.
      */
     @PostMapping("/quote")
     public ResponseEntity<?> recordQuote(
@@ -52,6 +53,27 @@ public class ShippingAdminApiController {
             log.error("Unexpected error recording shipping quote for order {}", orderId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to record shipping quote."));
+        }
+    }
+
+    /**
+     * POST /admin/api/orders/{orderId}/shipment/request-payment
+     * Advances the shipment from QUOTED → PAYMENT_PENDING, indicating that the
+     * shipping charge has been presented to the customer and payment is being requested.
+     */
+    @PostMapping("/request-payment")
+    public ResponseEntity<?> requestShippingPayment(@PathVariable Long orderId) {
+        try {
+            Shipment shipment = shippingService.requestShippingPayment(orderId);
+            return ResponseEntity.ok(ShipmentResponse.from(shipment));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.unprocessableEntity().body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error requesting shipping payment for order {}", orderId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to request shipping payment."));
         }
     }
 
@@ -78,7 +100,8 @@ public class ShippingAdminApiController {
 
     /**
      * POST /admin/api/orders/{orderId}/shipment/tracking
-     * Records carrier and tracking number. No carrier API validation.
+     * Records carrier and tracking number. Guards: order must be PAID and shipping
+     * payment fully resolved (NOT_REQUIRED, PAID, or WAIVED).
      */
     @PostMapping("/tracking")
     public ResponseEntity<?> recordTracking(
@@ -88,6 +111,8 @@ public class ShippingAdminApiController {
             Shipment shipment = shippingService.recordTracking(
                     orderId, req.getCarrier(), req.getTrackingNumber());
             return ResponseEntity.ok(ShipmentResponse.from(shipment));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.unprocessableEntity().body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {

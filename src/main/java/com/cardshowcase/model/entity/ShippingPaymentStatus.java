@@ -38,4 +38,16 @@ public enum ShippingPaymentStatus {
             case NOT_REQUIRED, PAID, WAIVED -> false;
         };
     }
+
+    /**
+     * True when the shipping charge lifecycle is fully resolved and the order is
+     * eligible for fulfillment (from a shipping-payment perspective).
+     *
+     * This is the single authoritative definition of "shipping resolved".
+     * Both ShippingService.recordTracking() and OrderService.isReadyForFulfillment()
+     * delegate to this method — do not duplicate the set in either caller.
+     */
+    public boolean isFulfillmentReady() {
+        return this == NOT_REQUIRED || this == PAID || this == WAIVED;
+    }
 }

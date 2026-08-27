@@ -123,8 +123,9 @@ public class ShippingService {
     // ── Admin operations ──────────────────────────────────────────────
 
     /**
-     * Records the actual shipping cost (QUOTE_REQUIRED → QUOTED → PAYMENT_PENDING).
-     * The transition to PAYMENT_PENDING is automatic — no separate step needed.
+     * Records the actual shipping cost: QUOTE_REQUIRED → QUOTED.
+     * Stops at QUOTED — the admin must explicitly call requestShippingPayment()
+     * to advance to PAYMENT_PENDING when presenting the charge to the customer.
      * Requires ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced at controller layer).
      */
     @Transactional
@@ -138,11 +139,29 @@ public class ShippingService {
         shipment.setQuotedShippingAmount(amount);
         shipment.setQuotedAt(LocalDateTime.now());
         shipment.setShippingPaymentStatus(ShippingPaymentStatus.QUOTED);
-        // Auto-advance: quote is immediately ready for payment collection
+        shipment = shipmentRepository.save(shipment);
+        log.info("Shipment {} (order {}): quote recorded amount={} → QUOTED",
+                shipment.getId(), orderId, amount);
+        return shipment;
+    }
+
+    /**
+     * Advances the shipping charge from QUOTED to PAYMENT_PENDING, representing that
+     * the shipping cost has been communicated to the customer and payment is being requested.
+     * Requires ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced at controller layer).
+     */
+    @Transactional
+    public Shipment requestShippingPayment(Long orderId) {
+        Shipment shipment = loadByOrderId(orderId);
+        if (!shipment.getShippingPaymentStatus().canTransitionTo(ShippingPaymentStatus.PAYMENT_PENDING)) {
+            throw new IllegalStateException(
+                    "Shipment for order " + orderId + " cannot advance to PAYMENT_PENDING in status " +
+                    shipment.getShippingPaymentStatus() + ". Must be QUOTED.");
+        }
         shipment.setShippingPaymentStatus(ShippingPaymentStatus.PAYMENT_PENDING);
         shipment = shipmentRepository.save(shipment);
-        log.info("Shipment {} (order {}): quoted={}, auto-transitioned → PAYMENT_PENDING",
-                shipment.getId(), orderId, amount);
+        log.info("Shipment {} (order {}): → PAYMENT_PENDING (payment requested from customer)",
+                shipment.getId(), orderId);
         return shipment;
     }
 
@@ -175,13 +194,24 @@ public class ShippingService {
     }
 
     /**
-     * Records carrier tracking info. Sets carrier, tracking_number, and shipped_at = now().
+     * Records carrier tracking info and marks the shipment shipped.
+     * Guards fulfillment readiness: Order must be PAID and ShippingPaymentStatus must
+     * be isFulfillmentReady() (NOT_REQUIRED, PAID, or WAIVED).
      * No carrier API validation — stores whatever the admin provides.
      * Requires ROLE_ADMIN or ROLE_SENIOR_ADMIN (enforced at controller layer).
      */
     @Transactional
     public Shipment recordTracking(Long orderId, String carrier, String trackingNumber) {
         Shipment shipment = loadByOrderId(orderId);
+        Order order = shipment.getOrder(); // lazy-loaded within this transaction
+        if (order.getStatus() != OrderStatus.PAID
+                || !shipment.getShippingPaymentStatus().isFulfillmentReady()) {
+            throw new IllegalStateException(
+                    "Cannot record tracking for order " + orderId + ": order must be PAID " +
+                    "and shipping fully resolved (NOT_REQUIRED, PAID, or WAIVED). " +
+                    "Current: order=" + order.getStatus() +
+                    ", shipping=" + shipment.getShippingPaymentStatus());
+        }
         shipment.setCarrier(carrier);
         shipment.setTrackingNumber(trackingNumber);
         shipment.setShippedAt(LocalDateTime.now());
