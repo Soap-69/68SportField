@@ -136,6 +136,14 @@ class ShippingQuoteApiTest extends BaseIntegrationTest {
     }
 
     @Test
+    void invalidState_returns400() throws Exception {
+        mockMvc.perform(get("/api/shipping/quote")
+                        .param("state", "ZZ")
+                        .param("subtotal", "100.00"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void zeroSubtotal_isValid() throws Exception {
         // $0 subtotal is a valid edge case (empty cart cleared after add — shouldn't happen
         // in practice but must not 400)

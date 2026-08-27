@@ -186,4 +186,52 @@ class ShippingServiceUnitTest {
     void isFulfillmentReady_paymentPending_false() {
         assertThat(ShippingPaymentStatus.PAYMENT_PENDING.isFulfillmentReady()).isFalse();
     }
+
+    // ── validateDestination ───────────────────────────────────────────
+
+    @Test
+    void validateDestination_validUsState_noException() {
+        assertThatNoException().isThrownBy(() ->
+                shippingService.validateDestination("US", "NY"));
+    }
+
+    @Test
+    void validateDestination_akIsValid() {
+        assertThatNoException().isThrownBy(() ->
+                shippingService.validateDestination("US", "AK"));
+    }
+
+    @Test
+    void validateDestination_caseInsensitiveCountry_accepted() {
+        assertThatNoException().isThrownBy(() ->
+                shippingService.validateDestination("us", "CA"));
+    }
+
+    @Test
+    void validateDestination_nonUsCountry_throws() {
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                shippingService.validateDestination("CA", "ON"))
+                .withMessageContaining("US domestic");
+    }
+
+    @Test
+    void validateDestination_nullCountry_throws() {
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                shippingService.validateDestination(null, "NY"))
+                .withMessageContaining("US domestic");
+    }
+
+    @Test
+    void validateDestination_invalidState_throws() {
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                shippingService.validateDestination("US", "ZZ"))
+                .withMessageContaining("ZZ");
+    }
+
+    @Test
+    void validateDestination_blankState_throws() {
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                shippingService.validateDestination("US", "  "))
+                .withMessageContaining("state");
+    }
 }

@@ -460,6 +460,150 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    // ── Week 6 second review regressions ─────────────────────────────
+
+    // Issue 3: recordTracking must NOT set shippedAt
+    @Test
+    void recordTracking_doesNotSetShippedAt() throws Exception {
+        Order order = createOrderWithState("ship-trk-noship-" + ts, "MA", 10);
+        confirmPayment(order.getId()); // Shipment NOT_REQUIRED, Order PAID
+
+        mockMvc.perform(post(trackingUrl(order.getId()))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("carrier", "UPS", "trackingNumber", "1Z999AA10123456784"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.carrier", is("UPS")))
+                .andExpect(jsonPath("$.trackingNumber", is("1Z999AA10123456784")));
+
+        Shipment shipment = shipmentRepository.findByOrder_Id(order.getId()).orElseThrow();
+        assertThat(shipment.getCarrier()).isEqualTo("UPS");
+        assertThat(shipment.getTrackingNumber()).isEqualTo("1Z999AA10123456784");
+        assertThat(shipment.getShippedAt()).isNull(); // dispatch is a separate action
+    }
+
+    // Issue 1: GROUND vs NEXT_DAY_AIR with same idempotency key → 409
+    @Test
+    void fingerprint_serviceLevelDifference_causesConflict() throws Exception {
+        String token = "ship-fp-sl-" + ts;
+        String key   = UUID.randomUUID().toString();
+
+        Cart cart = cartRepository.save(Cart.builder().sessionToken(token).build());
+        cartService.addToCart(cart, variant.getId(), 3);
+
+        // First checkout: GROUND
+        CheckoutRequest req1 = new CheckoutRequest();
+        req1.setIdempotencyKey(key);
+        req1.setGuestName("FP Test");
+        req1.setGuestEmail("fp-sl-" + ts + "@example.com");
+        req1.setShippingFirstName("FP");
+        req1.setShippingLastName("Test");
+        req1.setShippingAddressLine1("1 Main St");
+        req1.setShippingCity("Boston");
+        req1.setShippingState("MA");
+        req1.setShippingZip("02101");
+        req1.setShippingCountry("US");
+        req1.setBillingSameAsShipping(true);
+        req1.setServiceLevel(ServiceLevel.GROUND);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req1)))
+                .andExpect(status().isOk());
+
+        // Restore stock for second attempt (cart was cleared)
+        InventoryLocation loc2 = locationRepository.save(
+                InventoryLocation.builder().name("ShipLoc2-" + ts).isActive(true).build());
+        inventoryService.setStock(variant.getId(), loc2.getId(), 20);
+
+        Cart cart2 = cartRepository.save(Cart.builder().sessionToken(token + "-b").build());
+        cartService.addToCart(cart2, variant.getId(), 3);
+
+        // Second checkout: same key + same cart + same address BUT NEXT_DAY_AIR → must be 409
+        CheckoutRequest req2 = new CheckoutRequest();
+        req2.setIdempotencyKey(key);
+        req2.setGuestName("FP Test");
+        req2.setGuestEmail("fp-sl-" + ts + "@example.com");
+        req2.setShippingFirstName("FP");
+        req2.setShippingLastName("Test");
+        req2.setShippingAddressLine1("1 Main St");
+        req2.setShippingCity("Boston");
+        req2.setShippingState("MA");
+        req2.setShippingZip("02101");
+        req2.setShippingCountry("US");
+        req2.setBillingSameAsShipping(true);
+        req2.setServiceLevel(ServiceLevel.NEXT_DAY_AIR);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token + "-b"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req2)))
+                .andExpect(status().isConflict());
+    }
+
+    // Issue 2: non-US country is rejected at checkout
+    @Test
+    void checkout_nonUsCountry_returns400() throws Exception {
+        String token = "ship-dest-ca-" + ts;
+        Cart cart = cartRepository.save(Cart.builder().sessionToken(token).build());
+        cartService.addToCart(cart, variant.getId(), 3);
+
+        CheckoutRequest req = new CheckoutRequest();
+        req.setIdempotencyKey(UUID.randomUUID().toString());
+        req.setGuestName("CA Guest");
+        req.setGuestEmail("ca-" + ts + "@example.com");
+        req.setShippingFirstName("CA");
+        req.setShippingLastName("Guest");
+        req.setShippingAddressLine1("1 Maple St");
+        req.setShippingCity("Toronto");
+        req.setShippingState("ON");
+        req.setShippingZip("M5V3A8");
+        req.setShippingCountry("CA");
+        req.setBillingSameAsShipping(true);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("US domestic")));
+    }
+
+    // Issue 2: invalid US state code is rejected at checkout
+    @Test
+    void checkout_invalidUsState_returns400() throws Exception {
+        String token = "ship-dest-zz-" + ts;
+        Cart cart = cartRepository.save(Cart.builder().sessionToken(token).build());
+        cartService.addToCart(cart, variant.getId(), 3);
+
+        CheckoutRequest req = new CheckoutRequest();
+        req.setIdempotencyKey(UUID.randomUUID().toString());
+        req.setGuestName("ZZ Guest");
+        req.setGuestEmail("zz-" + ts + "@example.com");
+        req.setShippingFirstName("ZZ");
+        req.setShippingLastName("Guest");
+        req.setShippingAddressLine1("1 Nowhere Ln");
+        req.setShippingCity("Springfield");
+        req.setShippingState("ZZ");
+        req.setShippingZip("00000");
+        req.setShippingCountry("US");
+        req.setBillingSameAsShipping(true);
+
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("ZZ")));
+    }
+
     // ── 7. Next Day Air surcharge applied at checkout ─────────────────
 
     @Test

@@ -155,6 +155,11 @@ public class OrderService {
         // [0]=firstName [1]=lastName [2]=line1 [3]=line2 [4]=city [5]=state [6]=zip [7]=country [8]=phone
         String[] billingSnap  = resolveBillingSnapshot(req, customerId, shippingSnap);
 
+        // 6b. Validate shipping destination: US-only, valid state code.
+        //     Uses the single authoritative rule in ShippingService (shared with quote preview).
+        //     shippingSnap[7]=country, shippingSnap[5]=state
+        shippingService.validateDestination(shippingSnap[7], shippingSnap[5]);
+
         // 7. Calculate totals.
         // Tax: $0 placeholder — deferred to a later week.
         BigDecimal subtotal = items.stream()
@@ -465,8 +470,13 @@ public class OrderService {
     }
 
     /**
-     * Fingerprint = SHA-256 of cart item lines + customer identity + shipping key fields.
-     * Stable across identical retries; changes if cart content, address, or identity changes.
+     * Fingerprint = SHA-256 of:
+     *   cart item lines + customer identity + full shipping address (or saved ID)
+     *   + billing address (or saved ID, or "same-as-ship") + serviceLevel.
+     *
+     * Including serviceLevel ensures that GROUND vs NEXT_DAY_AIR with the same key
+     * and same cart is detected as a conflict (different financial outcome).
+     * Stable across identical retries; changes if any input dimension changes.
      */
     private String computeFingerprint(CheckoutRequest req, List<CartItem> items, Long customerId) {
         String cartPart = items.stream()
@@ -478,11 +488,27 @@ public class OrderService {
                 ? "customer:" + customerId
                 : "guest:" + req.getGuestEmail();
 
-        String addressPart = nvl(req.getShippingAddressLine1()) + "|"
-                + nvl(req.getShippingCity()) + "|"
-                + nvl(req.getShippingZip());
+        String shipPart = req.getSavedShippingAddressId() != null
+                ? "saved-ship:" + req.getSavedShippingAddressId()
+                : nvl(req.getShippingAddressLine1()) + "|"
+                  + nvl(req.getShippingCity()) + "|"
+                  + nvl(req.getShippingState()) + "|"
+                  + nvl(req.getShippingZip()) + "|"
+                  + nvl(req.getShippingCountry());
 
-        return sha256Hex(cartPart + "||" + identityPart + "||" + addressPart);
+        String billPart = req.isBillingSameAsShipping()
+                ? "same-as-ship"
+                : req.getSavedBillingAddressId() != null
+                        ? "saved-bill:" + req.getSavedBillingAddressId()
+                        : nvl(req.getBillingAddressLine1()) + "|"
+                          + nvl(req.getBillingCity()) + "|"
+                          + nvl(req.getBillingState()) + "|"
+                          + nvl(req.getBillingZip()) + "|"
+                          + nvl(req.getBillingCountry());
+
+        String slPart = req.getServiceLevel() != null ? req.getServiceLevel().name() : "GROUND";
+
+        return sha256Hex(cartPart + "||" + identityPart + "||" + shipPart + "||" + billPart + "||" + slPart);
     }
 
     /**

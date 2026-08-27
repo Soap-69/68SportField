@@ -35,6 +35,17 @@ public class ShippingService {
     static final BigDecimal NEXT_DAY_AIR_SURCHARGE  = new BigDecimal("150.00");
     private static final Set<String> AK_HI_STATES   = Set.of("AK", "HI");
 
+    /**
+     * All valid US state/territory postal abbreviations (upper-case).
+     * This is the authoritative list for both checkout validation and the quote preview endpoint.
+     */
+    static final Set<String> VALID_US_STATES = Set.of(
+            "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+            "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+            "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+            "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+            "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC");
+
     private final ShipmentRepository shipmentRepository;
 
     // ── Quote calculation (pure — no side effects) ────────────────────
@@ -64,6 +75,27 @@ public class ShippingService {
 
     public boolean isAkHi(String state) {
         return state != null && AK_HI_STATES.contains(state.trim().toUpperCase());
+    }
+
+    /**
+     * Enforces that the shipping destination is a supported US domestic address.
+     * This is the single authoritative rule shared by checkout validation and the
+     * quote preview endpoint. Throws {@link IllegalArgumentException} if invalid.
+     *
+     * @param country  ISO country code (must be "US", case-insensitive)
+     * @param state    postal state abbreviation (must be in VALID_US_STATES)
+     */
+    public void validateDestination(String country, String state) {
+        if (country == null || !country.trim().equalsIgnoreCase("US")) {
+            throw new IllegalArgumentException(
+                    "Only US domestic shipping is currently supported.");
+        }
+        if (state == null || state.isBlank()
+                || !VALID_US_STATES.contains(state.trim().toUpperCase())) {
+            throw new IllegalArgumentException(
+                    "Unsupported shipping destination state: \"" + state + "\". " +
+                    "Please enter a valid US state abbreviation.");
+        }
     }
 
     // ── Shipment initialization (orchestrated by OrderService) ────────
@@ -194,7 +226,8 @@ public class ShippingService {
     }
 
     /**
-     * Records carrier tracking info and marks the shipment shipped.
+     * Records the carrier and tracking number for a shipment.
+     * Does NOT set shippedAt — physical dispatch is a separate explicit action.
      * Guards fulfillment readiness: Order must be PAID and ShippingPaymentStatus must
      * be isFulfillmentReady() (NOT_REQUIRED, PAID, or WAIVED).
      * No carrier API validation — stores whatever the admin provides.
@@ -214,9 +247,8 @@ public class ShippingService {
         }
         shipment.setCarrier(carrier);
         shipment.setTrackingNumber(trackingNumber);
-        shipment.setShippedAt(LocalDateTime.now());
         shipment = shipmentRepository.save(shipment);
-        log.info("Shipment {} (order {}): tracking recorded carrier={}, number={}",
+        log.info("Shipment {} (order {}): tracking recorded carrier={}, number={} (shippedAt set separately at dispatch)",
                 shipment.getId(), orderId, carrier, trackingNumber);
         return shipment;
     }

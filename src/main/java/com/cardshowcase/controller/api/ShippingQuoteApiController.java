@@ -40,13 +40,16 @@ public class ShippingQuoteApiController {
             @RequestParam BigDecimal subtotal,
             @RequestParam(defaultValue = "GROUND") ServiceLevel serviceLevel) {
 
-        if (state == null || state.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "state must not be blank");
-        }
         if (subtotal.compareTo(BigDecimal.ZERO) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "subtotal must not be negative");
+        }
+        // Validate state using the same authoritative rule as checkout.
+        // Blank state is caught here too (validateDestination rejects blank).
+        try {
+            shippingService.validateDestination("US", state);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
         return shippingService.calculateQuote(state, serviceLevel, subtotal);
     }
