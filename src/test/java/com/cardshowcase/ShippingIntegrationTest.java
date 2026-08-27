@@ -494,20 +494,7 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
         cartService.addToCart(cart, variant.getId(), 3);
 
         // First checkout: GROUND
-        CheckoutRequest req1 = new CheckoutRequest();
-        req1.setIdempotencyKey(key);
-        req1.setGuestName("FP Test");
-        req1.setGuestEmail("fp-sl-" + ts + "@example.com");
-        req1.setShippingFirstName("FP");
-        req1.setShippingLastName("Test");
-        req1.setShippingAddressLine1("1 Main St");
-        req1.setShippingCity("Boston");
-        req1.setShippingState("MA");
-        req1.setShippingZip("02101");
-        req1.setShippingCountry("US");
-        req1.setBillingSameAsShipping(true);
-        req1.setServiceLevel(ServiceLevel.GROUND);
-
+        CheckoutRequest req1 = buildFpRequest(key, token, "FP", "Test", ServiceLevel.GROUND);
         mockMvc.perform(post("/api/checkout")
                         .with(csrf())
                         .cookie(new MockCookie("cart_token", token))
@@ -515,35 +502,78 @@ class ShippingIntegrationTest extends BaseIntegrationTest {
                         .content(objectMapper.writeValueAsString(req1)))
                 .andExpect(status().isOk());
 
-        // Restore stock for second attempt (cart was cleared)
+        // clearCart deleted items but kept the Cart entity.
+        // Restock and re-add to the SAME cart — identity (guest cookie) stays identical.
         InventoryLocation loc2 = locationRepository.save(
                 InventoryLocation.builder().name("ShipLoc2-" + ts).isActive(true).build());
-        inventoryService.setStock(variant.getId(), loc2.getId(), 20);
+        inventoryService.setStock(variant.getId(), loc2.getId(), 3);
+        cartService.addToCart(cart, variant.getId(), 3);
 
-        Cart cart2 = cartRepository.save(Cart.builder().sessionToken(token + "-b").build());
-        cartService.addToCart(cart2, variant.getId(), 3);
-
-        // Second checkout: same key + same cart + same address BUT NEXT_DAY_AIR → must be 409
-        CheckoutRequest req2 = new CheckoutRequest();
-        req2.setIdempotencyKey(key);
-        req2.setGuestName("FP Test");
-        req2.setGuestEmail("fp-sl-" + ts + "@example.com");
-        req2.setShippingFirstName("FP");
-        req2.setShippingLastName("Test");
-        req2.setShippingAddressLine1("1 Main St");
-        req2.setShippingCity("Boston");
-        req2.setShippingState("MA");
-        req2.setShippingZip("02101");
-        req2.setShippingCountry("US");
-        req2.setBillingSameAsShipping(true);
-        req2.setServiceLevel(ServiceLevel.NEXT_DAY_AIR);
-
+        // Same key, same cookie (same guest identity), same cart contents, NEXT_DAY_AIR → 409
+        CheckoutRequest req2 = buildFpRequest(key, token, "FP", "Test", ServiceLevel.NEXT_DAY_AIR);
         mockMvc.perform(post("/api/checkout")
                         .with(csrf())
-                        .cookie(new MockCookie("cart_token", token + "-b"))
+                        .cookie(new MockCookie("cart_token", token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req2)))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", containsString("different request content")));
+    }
+
+    // Fingerprint: changing recipient name with the same key → 409
+    @Test
+    void fingerprint_addressFieldChange_causesConflict() throws Exception {
+        String token = "ship-fp-addr-" + ts;
+        String key   = UUID.randomUUID().toString();
+
+        Cart cart = cartRepository.save(Cart.builder().sessionToken(token).build());
+        cartService.addToCart(cart, variant.getId(), 3);
+
+        // First checkout: firstName = "John"
+        CheckoutRequest req1 = buildFpRequest(key, token, "John", "Smith", ServiceLevel.GROUND);
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req1)))
+                .andExpect(status().isOk());
+
+        // Restock and re-add to the SAME cart
+        InventoryLocation loc2 = locationRepository.save(
+                InventoryLocation.builder().name("ShipLoc3-" + ts).isActive(true).build());
+        inventoryService.setStock(variant.getId(), loc2.getId(), 3);
+        cartService.addToCart(cart, variant.getId(), 3);
+
+        // Same key, same identity, firstName changed to "Jane" → fingerprint differs → 409
+        CheckoutRequest req2 = buildFpRequest(key, token, "Jane", "Smith", ServiceLevel.GROUND);
+        mockMvc.perform(post("/api/checkout")
+                        .with(csrf())
+                        .cookie(new MockCookie("cart_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req2)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", containsString("different request content")));
+    }
+
+    /** Builds a minimal guest checkout request with the given idempotency key, serviceLevel,
+     *  and shipping firstName/lastName. All other address fields are fixed. */
+    private CheckoutRequest buildFpRequest(String key, String token,
+                                           String firstName, String lastName,
+                                           ServiceLevel serviceLevel) {
+        CheckoutRequest req = new CheckoutRequest();
+        req.setIdempotencyKey(key);
+        req.setGuestName(firstName + " " + lastName);
+        req.setGuestEmail("fp-" + token + "@example.com");
+        req.setShippingFirstName(firstName);
+        req.setShippingLastName(lastName);
+        req.setShippingAddressLine1("1 Main St");
+        req.setShippingCity("Boston");
+        req.setShippingState("MA");
+        req.setShippingZip("02101");
+        req.setShippingCountry("US");
+        req.setBillingSameAsShipping(true);
+        req.setServiceLevel(serviceLevel);
+        return req;
     }
 
     // Issue 2: non-US country is rejected at checkout

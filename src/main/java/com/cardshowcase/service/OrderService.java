@@ -474,8 +474,11 @@ public class OrderService {
      *   cart item lines + customer identity + full shipping address (or saved ID)
      *   + billing address (or saved ID, or "same-as-ship") + serviceLevel.
      *
-     * Including serviceLevel ensures that GROUND vs NEXT_DAY_AIR with the same key
-     * and same cart is detected as a conflict (different financial outcome).
+     * For inline addresses all nine persisted fields are included so that any change
+     * to the snapshot (name, line2, phone, etc.) is detected as a conflict.
+     * Saved-address flows fingerprint the saved address identifier only.
+     * Including serviceLevel ensures GROUND vs NEXT_DAY_AIR with the same key
+     * and the same cart is treated as a conflict (different financial outcome).
      * Stable across identical retries; changes if any input dimension changes.
      */
     private String computeFingerprint(CheckoutRequest req, List<CartItem> items, Long customerId) {
@@ -490,25 +493,45 @@ public class OrderService {
 
         String shipPart = req.getSavedShippingAddressId() != null
                 ? "saved-ship:" + req.getSavedShippingAddressId()
-                : nvl(req.getShippingAddressLine1()) + "|"
-                  + nvl(req.getShippingCity()) + "|"
-                  + nvl(req.getShippingState()) + "|"
-                  + nvl(req.getShippingZip()) + "|"
-                  + nvl(req.getShippingCountry());
+                : inlineAddressFp(
+                        req.getShippingFirstName(),    req.getShippingLastName(),
+                        req.getShippingAddressLine1(), req.getShippingAddressLine2(),
+                        req.getShippingCity(),          req.getShippingState(),
+                        req.getShippingZip(),           req.getShippingCountry(),
+                        req.getShippingPhone());
 
         String billPart = req.isBillingSameAsShipping()
                 ? "same-as-ship"
                 : req.getSavedBillingAddressId() != null
                         ? "saved-bill:" + req.getSavedBillingAddressId()
-                        : nvl(req.getBillingAddressLine1()) + "|"
-                          + nvl(req.getBillingCity()) + "|"
-                          + nvl(req.getBillingState()) + "|"
-                          + nvl(req.getBillingZip()) + "|"
-                          + nvl(req.getBillingCountry());
+                        : inlineAddressFp(
+                                req.getBillingFirstName(),    req.getBillingLastName(),
+                                req.getBillingAddressLine1(), req.getBillingAddressLine2(),
+                                req.getBillingCity(),          req.getBillingState(),
+                                req.getBillingZip(),           req.getBillingCountry(),
+                                req.getBillingPhone());
 
         String slPart = req.getServiceLevel() != null ? req.getServiceLevel().name() : "GROUND";
 
         return sha256Hex(cartPart + "||" + identityPart + "||" + shipPart + "||" + billPart + "||" + slPart);
+    }
+
+    /**
+     * Canonical string representation of an inline address for fingerprinting.
+     * All nine fields that are persisted in the Order snapshot are included so
+     * that any material change (including name or phone) is detected as a conflict.
+     */
+    private static String inlineAddressFp(
+            String firstName, String lastName,
+            String line1,     String line2,
+            String city,      String state,
+            String zip,       String country,
+            String phone) {
+        return nvl(firstName) + "|" + nvl(lastName)  + "|"
+             + nvl(line1)     + "|" + nvl(line2)      + "|"
+             + nvl(city)      + "|" + nvl(state)       + "|"
+             + nvl(zip)       + "|" + nvl(country)     + "|"
+             + nvl(phone);
     }
 
     /**
