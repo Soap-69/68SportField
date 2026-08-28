@@ -68,7 +68,7 @@
                                 </tr>
                                 <tr>
                                     <td class="text-muted text-end pe-3">Shipping:</td>
-                                    <td class="text-end fw-semibold" th:text="'$' + ${#numbers.formatDecimal(order.shippingAmount, 1, 2)}"></td>
+                                    <td class="text-end fw-semibold" th:text="'$' + ${#numbers.formatDecimal(order.getEffectiveShippingAmount(shipment), 1, 2)}"></td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted text-end pe-3">Tax:</td>
@@ -76,7 +76,7 @@
                                 </tr>
                                 <tr class="border-top">
                                     <td class="text-end pe-3 fw-bold">Total:</td>
-                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(order.total, 1, 2)}"></td>
+                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(order.getEffectiveTotal(shipment), 1, 2)}"></td>
                                 </tr>
                             </table>
                         </div>

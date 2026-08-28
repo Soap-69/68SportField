@@ -145,6 +145,42 @@ public class Order {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // ── Effective shipping helpers ──────────────────────────────────
+    /**
+     * Returns the shipping amount that was actually collected (or will be collected).
+     *
+     * For standard continental-US orders, {@code shippingAmount} is authoritative.
+     * For AK/HI orders that required a supplemental shipping payment, the quoted
+     * amount (stored on the Shipment) supersedes the $0.00 placeholder recorded at
+     * checkout — but only once the customer's supplemental payment is confirmed
+     * (ShippingPaymentStatus.PAID).
+     *
+     * Pass {@code null} when no Shipment is associated with the order; the method
+     * falls back to {@code shippingAmount} in that case.
+     */
+    public BigDecimal getEffectiveShippingAmount(Shipment shipment) {
+        if (shipment != null
+                && shipment.getShippingPaymentStatus() == ShippingPaymentStatus.PAID
+                && shipment.getQuotedShippingAmount() != null) {
+            return shipment.getQuotedShippingAmount();
+        }
+        return this.shippingAmount;
+    }
+
+    /**
+     * Returns the true collected total: subtotal + effectiveShipping + tax.
+     *
+     * {@code order.total} is frozen at checkout time and may understate the actual
+     * amount collected for orders where a supplemental AK/HI shipping payment has
+     * since been confirmed. This method is the single authoritative figure to display
+     * in admin views and export to CSV.
+     */
+    public BigDecimal getEffectiveTotal(Shipment shipment) {
+        return this.subtotal
+                .add(getEffectiveShippingAmount(shipment))
+                .add(this.taxAmount);
+    }
+
     @PrePersist
     void onCreate() {
         createdAt = LocalDateTime.now();

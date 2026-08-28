@@ -75,8 +75,9 @@ public class AdminOrderExportController {
 
                 // carrier and tracking from shipment
                 Optional<Shipment> shipmentOpt = shipmentRepository.findByOrder_Id(order.getId());
-                String carrier = shipmentOpt.map(s -> nvl(s.getCarrier())).orElse("");
-                String trackingNumber = shipmentOpt.map(s -> nvl(s.getTrackingNumber())).orElse("");
+                Shipment shipment = shipmentOpt.orElse(null);
+                String carrier = shipment != null ? nvl(shipment.getCarrier()) : "";
+                String trackingNumber = shipment != null ? nvl(shipment.getTrackingNumber()) : "";
 
                 writer.println(String.join(",",
                     csvEscape(order.getOrderNumber()),
@@ -84,9 +85,9 @@ public class AdminOrderExportController {
                     csvEscape(email),
                     csvEscape(order.getStatus().name()),
                     order.getSubtotal().toPlainString(),
-                    order.getShippingAmount().toPlainString(),
+                    order.getEffectiveShippingAmount(shipment).toPlainString(),
                     order.getTaxAmount().toPlainString(),
-                    order.getTotal().toPlainString(),
+                    order.getEffectiveTotal(shipment).toPlainString(),
                     order.getCreatedAt() != null ? csvEscape(order.getCreatedAt().format(DT_FMT)) : "",
                     csvEscape(nvl(order.getShippingState())),
                     csvEscape(carrier),
