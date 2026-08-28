@@ -393,7 +393,19 @@ public class OrderService {
 
     /** Admin routine transitions (no approval needed). */
     @Transactional
-    public Order markProcessing(Long orderId) { return simpleTransition(orderId, OrderStatus.PROCESSING); }
+    public Order markProcessing(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        if (order.getStatus() != OrderStatus.PAID) {
+            throw new IllegalStateException("Cannot mark order " + orderId
+                + " as PROCESSING: must be in PAID status, but is " + order.getStatus());
+        }
+        if (!isReadyForFulfillment(order)) {
+            throw new IllegalStateException(
+                "Order is not ready for fulfillment: supplemental shipping obligation not yet resolved");
+        }
+        return transitionTo(order, OrderStatus.PROCESSING);
+    }
 
     @Transactional
     public Order markDelivered(Long orderId) { return simpleTransition(orderId, OrderStatus.DELIVERED); }

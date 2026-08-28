@@ -4,6 +4,8 @@ import com.cardshowcase.model.entity.Order;
 import com.cardshowcase.model.entity.OrderStatus;
 import com.cardshowcase.model.entity.RefundRequest;
 import com.cardshowcase.model.entity.RefundRequestStatus;
+import com.cardshowcase.model.entity.Shipment;
+import com.cardshowcase.model.entity.ShippingPaymentStatus;
 import com.cardshowcase.service.OrderService;
 import com.cardshowcase.service.PaymentService;
 import com.cardshowcase.service.RefundService;
@@ -63,17 +65,22 @@ public class AdminOrderController {
     public String detail(@PathVariable Long id, Model model, HttpServletRequest request) {
         Order order = orderService.findById(id);
         var payment = paymentService.findByOrderId(id).orElse(null);
-        var shipment = shippingService.findByOrderId(id).orElse(null);
+        Shipment shipment = shippingService.findByOrderId(id).orElse(null);
         List<RefundRequest> refundRequests = refundService.findByOrderId(id);
 
         boolean hasExecutedRefund = refundRequests.stream()
                 .anyMatch(r -> r.getStatus() == RefundRequestStatus.EXECUTED);
+
+        boolean hasSupplementalShipping = shipment != null
+                && shipment.getShippingPaymentStatus() == ShippingPaymentStatus.PAID
+                && shipment.getQuotedShippingAmount() != null;
 
         model.addAttribute("order", order);
         model.addAttribute("payment", payment);
         model.addAttribute("shipment", shipment);
         model.addAttribute("refundRequests", refundRequests);
         model.addAttribute("hasExecutedRefund", hasExecutedRefund);
+        model.addAttribute("hasSupplementalShipping", hasSupplementalShipping);
         model.addAttribute("pageTitle", "Order " + order.getOrderNumber());
         model.addAttribute("currentUri", request.getRequestURI());
         return "admin/orders/detail";

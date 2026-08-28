@@ -35,6 +35,7 @@ public class RefundService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final InventoryRepository inventoryRepository;
+    private final InventoryAllocationRepository inventoryAllocationRepository;
     private final AdminUserRepository adminUserRepository;
 
     /** Creates RefundRequest in PENDING_APPROVAL status */
@@ -136,8 +137,7 @@ public class RefundService {
 
         // c. Inventory restoration: only if goods had not yet physically left the warehouse
         if (!preRefundStatus.isPhysicallyDispatched()) {
-            List<OrderItem> items = orderItemRepository.findByOrder_IdOrderByIdAsc(order.getId());
-            restoreInventory(items);
+            restoreInventory(order.getId());
         }
 
         rr.setStatus(RefundRequestStatus.EXECUTED);
@@ -182,23 +182,18 @@ public class RefundService {
         return refundRequestRepository.findByOrder_IdOrderByCreatedAtAsc(orderId);
     }
 
-    private void restoreInventory(List<OrderItem> items) {
-        for (OrderItem item : items) {
-            if (item.getProductVariant() == null) continue;
-            List<Inventory> rows = inventoryRepository
-                .findActiveByVariantIdOrderByLocationIdAsc(item.getProductVariant().getId());
-            if (rows.isEmpty()) {
-                log.warn("No active inventory rows for variant {} — stock not restored",
-                    item.getProductVariant().getId());
-                continue;
-            }
-            // Restore to locations in same deterministic order as deduction (locationId ASC)
-            // Add full quantity to first location (mirrors the drain-first-location-first deduction pattern)
-            Inventory inv = rows.get(0);
-            inv.setQuantity(inv.getQuantity() + item.getQuantity());
+    private void restoreInventory(Long orderId) {
+        List<InventoryAllocation> allocations = inventoryAllocationRepository.findByOrderId(orderId);
+        if (allocations.isEmpty()) {
+            log.warn("No allocation records found for order {} — stock not restored", orderId);
+            return;
+        }
+        for (InventoryAllocation alloc : allocations) {
+            Inventory inv = alloc.getInventory();
+            inv.setQuantity(inv.getQuantity() + alloc.getQuantityCommitted());
             inventoryRepository.save(inv);
-            log.debug("Restored {} units for variant {} to location {}",
-                item.getQuantity(), item.getProductVariant().getId(), inv.getLocation().getId());
+            log.debug("Restored {} units to inventory {} for order {}",
+                alloc.getQuantityCommitted(), inv.getId(), orderId);
         }
     }
 

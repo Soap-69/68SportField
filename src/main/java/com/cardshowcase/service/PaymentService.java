@@ -29,6 +29,7 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final InventoryRepository inventoryRepository;
+    private final InventoryAllocationRepository inventoryAllocationRepository;
     private final OrderService orderService;
 
     @PersistenceContext
@@ -275,6 +276,11 @@ public class PaymentService {
                 int deduct = Math.min(remaining, inv.getQuantity());
                 inv.setQuantity(inv.getQuantity() - deduct);
                 inventoryRepository.save(inv); // may throw OLE → propagates to caller
+                inventoryAllocationRepository.save(InventoryAllocation.builder()
+                        .orderItem(item)
+                        .inventory(inv)
+                        .quantityCommitted(deduct)
+                        .build());
                 remaining -= deduct;
             }
             if (remaining > 0) {

@@ -33,6 +33,7 @@ class PaymentServiceUnitTest {
     @Mock OrderRepository orderRepository;
     @Mock OrderItemRepository orderItemRepository;
     @Mock InventoryRepository inventoryRepository;
+    @Mock InventoryAllocationRepository inventoryAllocationRepository;
     @Mock OrderService orderService;
     @Mock EntityManager em;
     @InjectMocks PaymentService paymentService;

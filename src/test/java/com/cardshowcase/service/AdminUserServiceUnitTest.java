@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -56,8 +57,8 @@ class AdminUserServiceUnitTest {
 
         AdminUser target = AdminUser.builder().id(targetId).username("target").role("SENIOR_ADMIN").isActive(true).build();
         when(adminUserRepository.findById(targetId)).thenReturn(Optional.of(target));
-        // Only 1 enabled SENIOR_ADMIN (the target itself)
-        when(adminUserRepository.countByRoleAndIsActiveTrue("SENIOR_ADMIN")).thenReturn(1L);
+        // Only 1 enabled SENIOR_ADMIN (the target itself) — lock returns list of 1
+        when(adminUserRepository.findAllEnabledSeniorAdminsForUpdate()).thenReturn(List.of(target));
 
         assertThatThrownBy(() -> adminUserService.changeRole(targetId, "ADMIN", actorId))
                 .isInstanceOf(IllegalStateException.class)
@@ -74,7 +75,7 @@ class AdminUserServiceUnitTest {
         when(adminUserRepository.findById(targetId)).thenReturn(Optional.of(target));
         when(adminUserRepository.findById(actorId)).thenReturn(Optional.of(actor));
         // 2 enabled SENIOR_ADMINs — demoting one still leaves 1
-        when(adminUserRepository.countByRoleAndIsActiveTrue("SENIOR_ADMIN")).thenReturn(2L);
+        when(adminUserRepository.findAllEnabledSeniorAdminsForUpdate()).thenReturn(List.of(target, actor));
         when(adminUserRepository.save(any(AdminUser.class))).thenAnswer(inv -> inv.getArgument(0));
         when(adminUserAuditRepository.save(any(AdminUserAudit.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -105,8 +106,8 @@ class AdminUserServiceUnitTest {
 
         AdminUser target = AdminUser.builder().id(targetId).username("target").role("SENIOR_ADMIN").isActive(true).build();
         when(adminUserRepository.findById(targetId)).thenReturn(Optional.of(target));
-        // Only 1 enabled SENIOR_ADMIN
-        when(adminUserRepository.countByRoleAndIsActiveTrue("SENIOR_ADMIN")).thenReturn(1L);
+        // Only 1 enabled SENIOR_ADMIN — lock returns list of 1
+        when(adminUserRepository.findAllEnabledSeniorAdminsForUpdate()).thenReturn(List.of(target));
 
         assertThatThrownBy(() -> adminUserService.setEnabled(targetId, false, actorId))
                 .isInstanceOf(IllegalStateException.class)
@@ -122,7 +123,8 @@ class AdminUserServiceUnitTest {
         AdminUser actor  = AdminUser.builder().id(actorId).username("actor").role("SENIOR_ADMIN").isActive(true).build();
         when(adminUserRepository.findById(targetId)).thenReturn(Optional.of(target));
         when(adminUserRepository.findById(actorId)).thenReturn(Optional.of(actor));
-        when(adminUserRepository.countByRoleAndIsActiveTrue("SENIOR_ADMIN")).thenReturn(2L);
+        // 2 enabled SENIOR_ADMINs — disabling one still leaves 1
+        when(adminUserRepository.findAllEnabledSeniorAdminsForUpdate()).thenReturn(List.of(target, actor));
         when(adminUserRepository.save(any(AdminUser.class))).thenAnswer(inv -> inv.getArgument(0));
         when(adminUserAuditRepository.save(any(AdminUserAudit.class))).thenAnswer(inv -> inv.getArgument(0));
 

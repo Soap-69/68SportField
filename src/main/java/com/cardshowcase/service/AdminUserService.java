@@ -155,8 +155,8 @@ public class AdminUserService {
 
         // Guard: would this leave zero enabled SENIOR_ADMINs?
         if ("SENIOR_ADMIN".equals(target.getRole()) && !"SENIOR_ADMIN".equals(newRole)) {
-            long remainingSeniorAdmins = adminUserRepository.countByRoleAndIsActiveTrue("SENIOR_ADMIN") - 1;
-            if (remainingSeniorAdmins <= 0) {
+            List<AdminUser> locked = adminUserRepository.findAllEnabledSeniorAdminsForUpdate();
+            if (locked.size() - 1 <= 0) {
                 throw new IllegalStateException("Cannot demote: would leave zero enabled Senior Admin accounts.");
             }
         }
@@ -197,8 +197,8 @@ public class AdminUserService {
 
         // Guard: would disabling leave zero enabled SENIOR_ADMINs?
         if (!enabled && "SENIOR_ADMIN".equals(target.getRole())) {
-            long remainingSeniorAdmins = adminUserRepository.countByRoleAndIsActiveTrue("SENIOR_ADMIN") - 1;
-            if (remainingSeniorAdmins <= 0) {
+            List<AdminUser> locked = adminUserRepository.findAllEnabledSeniorAdminsForUpdate();
+            if (locked.size() - 1 <= 0) {
                 throw new IllegalStateException("Cannot disable: would leave zero enabled Senior Admin accounts.");
             }
         }
