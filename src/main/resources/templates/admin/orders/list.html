@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head>
+    <title>Orders</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-0">Orders</h2>
+            <p class="text-muted small mb-0">Manage and track all orders.</p>
+        </div>
+        <a th:href="@{/admin/api/orders/export(search=${search},status=${status},from=${from},to=${to})}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i>Export CSV
+        </a>
+    </div>
+
+    <!-- Search & Filter Form -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <form method="get" th:action="@{/admin/orders}" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold mb-1">Search</label>
+                    <input type="text" class="form-control form-control-sm" name="search"
+                           th:value="${search}" placeholder="Order #, name, email...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold mb-1">Status</label>
+                    <select class="form-select form-select-sm" name="status">
+                        <option value="">All Statuses</option>
+                        <option th:each="s : ${orderStatuses}"
+                                th:value="${s.name()}"
+                                th:text="${s.name()}"
+                                th:selected="${s.name() == status}">STATUS</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold mb-1">From</label>
+                    <input type="date" class="form-control form-control-sm" name="from"
+                           th:value="${from}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold mb-1">To</label>
+                    <input type="date" class="form-control form-control-sm" name="to"
+                           th:value="${to}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-search me-1"></i>Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-3 py-2">Order #</th>
+                            <th class="py-2">Customer</th>
+                            <th class="py-2">Email</th>
+                            <th class="py-2">Status</th>
+                            <th class="py-2 text-end">Total</th>
+                            <th class="py-2">Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${orders.isEmpty()}">
+                            <td colspan="6" class="text-center text-muted py-4">No orders found.</td>
+                        </tr>
+                        <tr th:each="order : ${orders}">
+                            <td class="px-3 py-2">
+                                <a th:href="@{/admin/orders/{id}(id=${order.id})}"
+                                   th:text="${order.orderNumber}"
+                                   class="text-decoration-none fw-semibold">ORD-...</a>
+                            </td>
+                            <td class="py-2">
+                                <span th:if="${order.guestName != null}" th:text="${order.guestName}"></span>
+                                <span th:if="${order.guestName == null}"
+                                      th:text="${(order.shippingFirstName ?: '') + ' ' + (order.shippingLastName ?: '')}"></span>
+                            </td>
+                            <td class="py-2">
+                                <span th:if="${order.guestEmail != null}" th:text="${order.guestEmail}"></span>
+                                <span th:if="${order.guestEmail == null and order.customer != null}" th:text="${order.customer.email}"></span>
+                            </td>
+                            <td class="py-2">
+                                <span class="badge"
+                                      th:classappend="${order.status.name() == 'PAID'} ? 'bg-success' :
+                                                      (${order.status.name() == 'PENDING_PAYMENT'} ? 'bg-warning text-dark' :
+                                                      (${order.status.name() == 'REFUNDED'} ? 'bg-danger' :
+                                                      (${order.status.name() == 'CANCELLED'} ? 'bg-secondary' :
+                                                      (${order.status.name() == 'SHIPPED'} ? 'bg-info text-dark' :
+                                                      'bg-primary'))))"
+                                      th:text="${order.status.name()}">STATUS</span>
+                            </td>
+                            <td class="py-2 text-end" th:text="'$' + ${#numbers.formatDecimal(order.total, 1, 2)}">$0.00</td>
+                            <td class="py-2 text-muted small"
+                                th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'MMM d, yyyy') : ''}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <nav th:if="${orders.totalPages > 1}" class="mt-3 d-flex justify-content-center">
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" th:classappend="${orders.first} ? 'disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/orders(search=${search},status=${status},from=${from},to=${to},page=${orders.number - 1})}">
+                    &laquo; Prev
+                </a>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link"
+                      th:text="${orders.number + 1} + ' / ' + ${orders.totalPages}">1/1</span>
+            </li>
+            <li class="page-item" th:classappend="${orders.last} ? 'disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/orders(search=${search},status=${status},from=${from},to=${to},page=${orders.number + 1})}">
+                    Next &raquo;
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+</div>
+</body>
+</html>

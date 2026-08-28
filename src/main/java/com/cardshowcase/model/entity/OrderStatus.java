@@ -47,4 +47,18 @@ public enum OrderStatus {
     public boolean canTransitionTo(OrderStatus next) {
         return ALLOWED.getOrDefault(this, EnumSet.noneOf(OrderStatus.class)).contains(next);
     }
+
+    /**
+     * Returns true for statuses that represent physical dispatch having already occurred:
+     * SHIPPED, DELIVERED, COMPLETED.
+     *
+     * Used by the refund workflow to decide whether inventory should be restored.
+     * Inventory is NOT restored once goods have left the warehouse.
+     *
+     * Intentionally an explicit set membership check rather than ordinal comparison
+     * so that adding or reordering enum values never silently changes this logic.
+     */
+    public boolean isPhysicallyDispatched() {
+        return this == SHIPPED || this == DELIVERED || this == COMPLETED;
+    }
 }

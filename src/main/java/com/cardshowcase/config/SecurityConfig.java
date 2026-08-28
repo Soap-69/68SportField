@@ -50,6 +50,13 @@ public class SecurityConfig {
             .securityMatcher("/admin/**")
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/login").permitAll()
+                // SENIOR_ADMIN-only rules must be declared before the generic /admin/** rule
+                .requestMatchers("/admin/api/refund-requests/*/approve",
+                                 "/admin/api/refund-requests/*/reject")
+                    .hasRole("SENIOR_ADMIN")
+                .requestMatchers("/admin/users", "/admin/users/**",
+                                 "/admin/api/users", "/admin/api/users/**")
+                    .hasRole("SENIOR_ADMIN")
                 .requestMatchers("/admin/**").hasAnyRole("ADMIN", "SENIOR_ADMIN")
             )
             .formLogin(form -> form

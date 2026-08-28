@@ -79,6 +79,20 @@ class OrderStateMachineTest {
     @Test void completed_to_completed_rejected()         { assertForbidden(COMPLETED, COMPLETED); }
     @Test void completed_to_cancelled_rejected()         { assertForbidden(COMPLETED, CANCELLED); }
 
+    // ── isPhysicallyDispatched ─────────────────────────────────────
+
+    /** Statuses that mean goods have left the warehouse. */
+    @Test void shipped_isPhysicallyDispatched()            { assertThat(SHIPPED.isPhysicallyDispatched()).isTrue(); }
+    @Test void delivered_isPhysicallyDispatched()          { assertThat(DELIVERED.isPhysicallyDispatched()).isTrue(); }
+    @Test void completed_isPhysicallyDispatched()          { assertThat(COMPLETED.isPhysicallyDispatched()).isTrue(); }
+
+    /** Statuses that mean goods have NOT yet left the warehouse. */
+    @Test void pendingPayment_notPhysicallyDispatched()    { assertThat(PENDING_PAYMENT.isPhysicallyDispatched()).isFalse(); }
+    @Test void paid_notPhysicallyDispatched()              { assertThat(PAID.isPhysicallyDispatched()).isFalse(); }
+    @Test void processing_notPhysicallyDispatched()        { assertThat(PROCESSING.isPhysicallyDispatched()).isFalse(); }
+    @Test void cancelled_notPhysicallyDispatched()         { assertThat(CANCELLED.isPhysicallyDispatched()).isFalse(); }
+    @Test void refunded_notPhysicallyDispatched()          { assertThat(REFUNDED.isPhysicallyDispatched()).isFalse(); }
+
     // ── Helpers ───────────────────────────────────────────────────
 
     private void assertAllowed(OrderStatus from, OrderStatus to) {

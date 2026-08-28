@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      layout:decorate="~{admin/layout}"
+      lang="en">
+<head>
+    <title th:text="'Order ' + ${order.orderNumber}">Order Detail</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a th:href="@{/admin/orders}" class="btn btn-outline-secondary btn-sm mb-2">
+                <i class="bi bi-arrow-left me-1"></i>Back to Orders
+            </a>
+            <h2 class="h4 fw-bold mb-0" th:text="'Order ' + ${order.orderNumber}">Order</h2>
+        </div>
+        <span class="badge fs-6"
+              th:classappend="${order.status.name() == 'PAID'} ? 'bg-success' :
+                              (${order.status.name() == 'PENDING_PAYMENT'} ? 'bg-warning text-dark' :
+                              (${order.status.name() == 'REFUNDED'} ? 'bg-danger' :
+                              (${order.status.name() == 'CANCELLED'} ? 'bg-secondary' :
+                              (${order.status.name() == 'SHIPPED'} ? 'bg-info text-dark' : 'bg-primary'))))"
+              th:text="${order.status.name()}">STATUS</span>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Left column -->
+        <div class="col-lg-8">
+
+            <!-- Order Items -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-box-seam me-2"></i>Items
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-3">Product</th>
+                                <th>SKU</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-end px-3">Unit Price</th>
+                                <th class="text-end px-3">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="item : ${order.items}">
+                                <td class="px-3" th:text="${item.productName + ' (' + item.variantTypeSnapshot + ')'}"></td>
+                                <td th:text="${item.skuSnapshot}"></td>
+                                <td class="text-center" th:text="${item.quantity}"></td>
+                                <td class="text-end px-3" th:text="'$' + ${#numbers.formatDecimal(item.unitPrice, 1, 2)}"></td>
+                                <td class="text-end px-3" th:text="'$' + ${#numbers.formatDecimal(item.lineSubtotal, 1, 2)}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="row justify-content-end">
+                        <div class="col-auto">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <td class="text-muted text-end pe-3">Subtotal:</td>
+                                    <td class="text-end fw-semibold" th:text="'$' + ${#numbers.formatDecimal(order.subtotal, 1, 2)}"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted text-end pe-3">Shipping:</td>
+                                    <td class="text-end fw-semibold" th:text="'$' + ${#numbers.formatDecimal(order.shippingAmount, 1, 2)}"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted text-end pe-3">Tax:</td>
+                                    <td class="text-end fw-semibold" th:text="'$' + ${#numbers.formatDecimal(order.taxAmount, 1, 2)}"></td>
+                                </tr>
+                                <tr class="border-top">
+                                    <td class="text-end pe-3 fw-bold">Total:</td>
+                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(order.total, 1, 2)}"></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shipment -->
+            <div class="card border-0 shadow-sm mb-4" th:if="${shipment != null}">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-truck me-2"></i>Shipment
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-sm-4">
+                            <div class="text-muted small">Shipping Status</div>
+                            <div class="fw-semibold" th:text="${shipment.shippingPaymentStatus.name()}"></div>
+                        </div>
+                        <div class="col-sm-4" th:if="${shipment.carrier != null}">
+                            <div class="text-muted small">Carrier</div>
+                            <div class="fw-semibold" th:text="${shipment.carrier}"></div>
+                        </div>
+                        <div class="col-sm-4" th:if="${shipment.trackingNumber != null}">
+                            <div class="text-muted small">Tracking #</div>
+                            <div class="fw-semibold" th:text="${shipment.trackingNumber}"></div>
+                        </div>
+                        <div class="col-sm-4" th:if="${shipment.shippedAt != null}">
+                            <div class="text-muted small">Shipped At</div>
+                            <div class="fw-semibold" th:text="${#temporals.format(shipment.shippedAt, 'MMM d, yyyy HH:mm')}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment -->
+            <div class="card border-0 shadow-sm mb-4" th:if="${payment != null}">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-credit-card me-2"></i>Payment
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-sm-4">
+                            <div class="text-muted small">Status</div>
+                            <div class="fw-semibold" th:text="${payment.status.name()}"></div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="text-muted small">Provider</div>
+                            <div class="fw-semibold" th:text="${payment.provider}"></div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="text-muted small">Amount</div>
+                            <div class="fw-semibold" th:text="'$' + ${#numbers.formatDecimal(payment.amount, 1, 2)}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Refund Requests -->
+            <div class="card border-0 shadow-sm mb-4" th:if="${!refundRequests.isEmpty()}">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Refund Requests
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-3">ID</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Reason</th>
+                                <th>Requested At</th>
+                                <th class="px-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="rr : ${refundRequests}">
+                                <td class="px-3" th:text="${rr.id}"></td>
+                                <td th:text="'$' + ${#numbers.formatDecimal(rr.requestedAmount, 1, 2)}"></td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${rr.status.name() == 'EXECUTED'} ? 'bg-success' :
+                                                          (${rr.status.name() == 'REJECTED'} ? 'bg-danger' :
+                                                          (${rr.status.name() == 'FAILED'} ? 'bg-danger' :
+                                                          (${rr.status.name() == 'APPROVED'} ? 'bg-info' : 'bg-warning text-dark')))"
+                                          th:text="${rr.status.name()}">STATUS</span>
+                                </td>
+                                <td th:text="${rr.reason}"></td>
+                                <td th:text="${rr.requestedAt != null ? #temporals.format(rr.requestedAt, 'MMM d, yyyy HH:mm') : ''}"></td>
+                                <td class="px-3">
+                                    <div th:if="${rr.status.name() == 'PENDING_APPROVAL'}"
+                                         sec:authorize="hasRole('SENIOR_ADMIN')"
+                                         class="d-flex gap-1">
+                                        <!--
+                                            Approve: POST with no body — handled by admin-actions.js via data-action-url.
+                                            Reject: POST with optional rejectionReason JSON body — JS prompts for reason.
+                                        -->
+                                        <button type="button" class="btn btn-success btn-sm"
+                                                th:data-action-url="@{/admin/api/refund-requests/{id}/approve(id=${rr.id})}">
+                                            Approve
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm btn-reject-refund"
+                                                th:data-reject-url="@{/admin/api/refund-requests/{id}/reject(id=${rr.id})}">
+                                            Reject
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right column -->
+        <div class="col-lg-4">
+
+            <!-- Order Info -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-info-circle me-2"></i>Order Info
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5 text-muted">Order #</dt>
+                        <dd class="col-7" th:text="${order.orderNumber}"></dd>
+                        <dt class="col-5 text-muted">Status</dt>
+                        <dd class="col-7" th:text="${order.status.name()}"></dd>
+                        <dt class="col-5 text-muted">Created</dt>
+                        <dd class="col-7" th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'MMM d, yyyy HH:mm') : ''}"></dd>
+                        <dt class="col-5 text-muted">Updated</dt>
+                        <dd class="col-7" th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'MMM d, yyyy HH:mm') : ''}"></dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Customer Info -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-person me-2"></i>Customer
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-4 text-muted">Name</dt>
+                        <dd class="col-8">
+                            <span th:if="${order.guestName != null}" th:text="${order.guestName}"></span>
+                            <span th:if="${order.guestName == null}"
+                                  th:text="${(order.shippingFirstName ?: '') + ' ' + (order.shippingLastName ?: '')}"></span>
+                        </dd>
+                        <dt class="col-4 text-muted">Email</dt>
+                        <dd class="col-8">
+                            <span th:if="${order.guestEmail != null}" th:text="${order.guestEmail}"></span>
+                            <span th:if="${order.guestEmail == null and order.customer != null}" th:text="${order.customer.email}"></span>
+                        </dd>
+                        <dt class="col-4 text-muted">Type</dt>
+                        <dd class="col-8">
+                            <span th:if="${order.guestName != null}" class="badge bg-secondary">Guest</span>
+                            <span th:if="${order.guestName == null}" class="badge bg-primary">Customer</span>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Shipping Address -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-geo-alt me-2"></i>Shipping Address
+                </div>
+                <div class="card-body small">
+                    <div th:text="${order.shippingFirstName + ' ' + order.shippingLastName}"></div>
+                    <div th:text="${order.shippingAddressLine1}"></div>
+                    <div th:if="${order.shippingAddressLine2 != null}" th:text="${order.shippingAddressLine2}"></div>
+                    <div th:text="${order.shippingCity + ', ' + order.shippingState + ' ' + order.shippingZip}"></div>
+                    <div th:text="${order.shippingCountry}"></div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════
+                 Action Buttons
+                 All buttons use fetch() via admin-actions.js so that:
+                 (a) simple POST actions don't navigate the browser to raw JSON, and
+                 (b) JSON-body actions (tracking, refund) send the correct Content-Type.
+                 On success each action reloads the page so the updated state is shown.
+                 ═══════════════════════════════════════════════════ -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-lightning me-2"></i>Actions
+                </div>
+                <div class="card-body d-grid gap-2">
+
+                    <!--
+                        Record Tracking — PAID + shipping payment resolved + tracking not yet recorded.
+                        Backend guard: ShippingService.recordTracking() requires order.status == PAID.
+                        The form inputs are intercepted by JS and POSTed as JSON to /shipment/tracking.
+                    -->
+                    <div th:if="${order.status.name() == 'PAID' and shipment != null and shipment.trackingNumber == null}">
+                        <form id="trackingForm"
+                              th:action="@{/admin/api/orders/{id}/shipment/tracking(id=${order.id})}"
+                              method="post">
+                            <div class="row g-1 mb-1">
+                                <div class="col-5">
+                                    <input type="text" class="form-control form-control-sm"
+                                           name="carrier" placeholder="Carrier" required>
+                                </div>
+                                <div class="col-7">
+                                    <input type="text" class="form-control form-control-sm"
+                                           name="trackingNumber" placeholder="Tracking #" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                                <i class="bi bi-upc-scan me-1"></i>Record Tracking
+                            </button>
+                        </form>
+                    </div>
+
+                    <!--
+                        Mark Processing — PAID → PROCESSING.
+                        Simple POST, no body. data-action-url triggers fetch() in JS.
+                    -->
+                    <button type="button" class="btn btn-primary btn-sm"
+                            th:if="${order.status.name() == 'PAID'}"
+                            th:data-action-url="@{/admin/api/orders/{id}/mark-processing(id=${order.id})}">
+                        <i class="bi bi-gear me-1"></i>Mark Processing
+                    </button>
+
+                    <!--
+                        Dispatch — PROCESSING → SHIPPED (tracking already recorded).
+                        Simple POST, no body.
+                    -->
+                    <button type="button" class="btn btn-info btn-sm"
+                            th:if="${order.status.name() == 'PROCESSING' and shipment != null and shipment.carrier != null and shipment.trackingNumber != null}"
+                            th:data-action-url="@{/admin/api/orders/{id}/dispatch(id=${order.id})}">
+                        <i class="bi bi-truck me-1"></i>Dispatch (Mark Shipped)
+                    </button>
+
+                    <!-- Hint: if PROCESSING but tracking not yet recorded, inform the admin -->
+                    <div th:if="${order.status.name() == 'PROCESSING' and (shipment == null or shipment.trackingNumber == null)}"
+                         class="alert alert-warning py-2 small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Tracking must be recorded before dispatch. Record tracking while the order is in PAID status, then mark Processing.
+                    </div>
+
+                    <!--
+                        Mark Delivered — SHIPPED → DELIVERED.
+                    -->
+                    <button type="button" class="btn btn-success btn-sm"
+                            th:if="${order.status.name() == 'SHIPPED'}"
+                            th:data-action-url="@{/admin/api/orders/{id}/mark-delivered(id=${order.id})}">
+                        <i class="bi bi-check-circle me-1"></i>Mark Delivered
+                    </button>
+
+                    <!--
+                        Mark Completed — DELIVERED → COMPLETED.
+                    -->
+                    <button type="button" class="btn btn-success btn-sm"
+                            th:if="${order.status.name() == 'DELIVERED'}"
+                            th:data-action-url="@{/admin/api/orders/{id}/mark-completed(id=${order.id})}">
+                        <i class="bi bi-bag-check me-1"></i>Mark Completed
+                    </button>
+
+                    <!--
+                        Submit Refund Request — available for PAID/PROCESSING/SHIPPED/DELIVERED/COMPLETED
+                        when no refund has already been executed.
+
+                        hasExecutedRefund is a boolean set by the controller (Java stream check),
+                        NOT a Thymeleaf lambda — that was the root cause of the blank Actions section.
+
+                        The form amount is stored in data-amount and POSTed as JSON by JS.
+                    -->
+                    <form id="refundForm"
+                          th:if="${(order.status.name() == 'PAID' or order.status.name() == 'PROCESSING' or
+                                    order.status.name() == 'SHIPPED' or order.status.name() == 'DELIVERED' or
+                                    order.status.name() == 'COMPLETED') and !hasExecutedRefund}"
+                          th:action="@{/admin/api/orders/{id}/refund-requests(id=${order.id})}"
+                          th:data-amount="${order.total}"
+                          method="post">
+                        <button type="submit" class="btn btn-warning btn-sm w-100">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Submit Refund Request
+                        </button>
+                    </form>
+
+                    <!--
+                        Terminal/no-action states.
+                    -->
+                    <p th:if="${order.status.name() == 'PENDING_PAYMENT' or
+                                order.status.name() == 'CANCELLED' or
+                                order.status.name() == 'REFUNDED'}"
+                       class="text-muted small mb-0">
+                        No further actions available for this order.
+                    </p>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         Admin actions JavaScript
+         Handles all action buttons and forms on this page:
+           [data-action-url]  — simple POST, no body (mark-processing, dispatch, etc.)
+           #trackingForm      — POST JSON {carrier, trackingNumber}
+           #refundForm        — POST JSON {amount, reason} after confirmation
+           [data-reject-url]  — POST JSON {rejectionReason} after prompt
+         On success: reloads the page so updated state is reflected.
+         On error:   shows an alert with the error message from the API.
+         ═══════════════════════════════════════════════════════════════ -->
+    <script th:inline="none">
+    (function () {
+        var csrfToken   = document.querySelector('meta[name="_csrf"]')?.content || '';
+        var csrfHeader  = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+
+        function apiPost(url, body) {
+            var opts = {
+                method: 'POST',
+                headers: { [csrfHeader]: csrfToken }
+            };
+            if (body !== null && body !== undefined) {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(body);
+            }
+            return fetch(url, opts).then(function (r) {
+                if (r.ok) {
+                    location.reload();
+                } else {
+                    return r.json().then(function (d) {
+                        alert('Error: ' + (d.error || ('HTTP ' + r.status)));
+                    }).catch(function () {
+                        alert('Error: HTTP ' + r.status);
+                    });
+                }
+            }).catch(function (e) {
+                alert('Request failed: ' + e);
+            });
+        }
+
+        // Simple POST actions (no body): mark-processing, dispatch, mark-delivered,
+        // mark-completed, approve-refund — all use [data-action-url].
+        document.querySelectorAll('[data-action-url]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                apiPost(this.dataset.actionUrl, undefined);
+            });
+        });
+
+        // Record Tracking form → POST JSON {carrier, trackingNumber}
+        var trackingForm = document.getElementById('trackingForm');
+        if (trackingForm) {
+            trackingForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                apiPost(this.action, {
+                    carrier:        this.carrier.value.trim(),
+                    trackingNumber: this.trackingNumber.value.trim()
+                });
+            });
+        }
+
+        // Submit Refund Request form → POST JSON {amount, reason} after confirmation
+        var refundForm = document.getElementById('refundForm');
+        if (refundForm) {
+            refundForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var amount = this.dataset.amount;
+                if (!confirm('Submit a full refund request for $' + amount + '?')) return;
+                apiPost(this.action, {
+                    amount: parseFloat(amount),
+                    reason: 'Admin-initiated full refund'
+                });
+            });
+        }
+
+        // Reject refund buttons → prompt for reason, POST JSON {rejectionReason}
+        document.querySelectorAll('[data-reject-url]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var reason = prompt('Rejection reason (leave blank to reject without reason):');
+                if (reason === null) return; // admin cancelled the prompt
+                apiPost(this.dataset.rejectUrl, { rejectionReason: reason.trim() || null });
+            });
+        });
+    })();
+    </script>
+
+</div>
+</body>
+</html>

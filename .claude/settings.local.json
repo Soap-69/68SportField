@@ -47,7 +47,14 @@
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./mvnw test -q)",
       "Bash(xargs -I {} basename {})",
       "Bash(/usr/libexec/java_home)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw test -pl . -Dtest=RefundWorkflowIntegrationTest -q)",
+      "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw test -pl . -Dtest=RefundWorkflowIntegrationTest)",
+      "Bash(JAVA_HOME=\"/c/Users/18572/.jdks/openjdk-17.0.2\" ./mvnw test -pl .)",
+      "Bash(git -C /c/Users/18572/cardshop diff main worktree-agent-abf18008 --name-only)",
+      "Bash(git -C \"/c/Users/18572/cardshop/.claude/worktrees/agent-abf18008\" diff HEAD --name-only)",
+      "Bash(git -C \"/c/Users/18572/cardshop/.claude/worktrees/agent-abf18008\" log --oneline -5)",
+      "Bash(JAVA_HOME=/c/Users/18572/.jdks/openjdk-17.0.2 ./mvnw test)"
     ]
   }
 }

@@ -6,12 +6,16 @@ import com.cardshowcase.model.dto.CheckoutRequest;
 import com.cardshowcase.model.entity.*;
 import com.cardshowcase.repository.*;
 import com.cardshowcase.shipping.ShippingQuote;
+import com.cardshowcase.spec.OrderSpecification;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +42,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final CustomerAddressRepository customerAddressRepository;
     private final ShippingService shippingService;
+    private final ShipmentRepository shipmentRepository;
 
     @PersistenceContext
     private EntityManager em;
@@ -306,6 +311,12 @@ public class OrderService {
     // ── Queries ───────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
+    public Order findById(Long orderId) {
+        return orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+    }
+
+    @Transactional(readOnly = true)
     public List<Order> findOrdersByCustomerId(Long customerId) {
         return orderRepository.findByCustomer_IdOrderByCreatedAtDesc(customerId);
     }
@@ -348,6 +359,64 @@ public class OrderService {
                 return false;
             }
         });
+    }
+
+    // ── Admin order management ────────────────────────────────────────
+
+    /**
+     * Dispatches a shipment atomically: transitions Order PROCESSING→SHIPPED
+     * and sets Shipment.shippedAt = now() in a SINGLE transaction.
+     * Requires: Order.status == PROCESSING, Shipment.carrier != null, Shipment.trackingNumber != null.
+     */
+    @Transactional
+    public Order dispatchShipment(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        if (order.getStatus() != OrderStatus.PROCESSING) {
+            throw new IllegalStateException("Cannot dispatch order " + orderId
+                + ": must be in PROCESSING status, but is " + order.getStatus());
+        }
+        Shipment shipment = shipmentRepository.findByOrder_Id(orderId)
+            .orElseThrow(() -> new IllegalStateException("No shipment found for order " + orderId));
+        if (shipment.getCarrier() == null || shipment.getTrackingNumber() == null) {
+            throw new IllegalStateException("Cannot dispatch order " + orderId
+                + ": tracking must be recorded first (carrier and trackingNumber required).");
+        }
+        // Atomic: both changes in the same transaction
+        order.setStatus(OrderStatus.SHIPPED);
+        order = orderRepository.save(order);
+        shipment.setShippedAt(java.time.LocalDateTime.now());
+        shipmentRepository.save(shipment);
+        log.info("Order {} dispatched: PROCESSING → SHIPPED, shippedAt recorded", order.getOrderNumber());
+        return order;
+    }
+
+    /** Admin routine transitions (no approval needed). */
+    @Transactional
+    public Order markProcessing(Long orderId) { return simpleTransition(orderId, OrderStatus.PROCESSING); }
+
+    @Transactional
+    public Order markDelivered(Long orderId) { return simpleTransition(orderId, OrderStatus.DELIVERED); }
+
+    @Transactional
+    public Order markCompleted(Long orderId) { return simpleTransition(orderId, OrderStatus.COMPLETED); }
+
+    private Order simpleTransition(Long orderId, OrderStatus next) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        return transitionTo(order, next);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> findOrders(String search, String status, LocalDate from, LocalDate to, Pageable pageable) {
+        Specification<Order> spec = OrderSpecification.withFilters(search, status, from, to);
+        return orderRepository.findAll(spec, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Order> findOrdersForExport(String search, String status, LocalDate from, LocalDate to) {
+        Specification<Order> spec = OrderSpecification.withFilters(search, status, from, to);
+        return orderRepository.findAll(spec);
     }
 
     // ── Idempotency identity verification ────────────────────────────
