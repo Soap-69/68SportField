@@ -15,8 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.cardshowcase.model.entity.OrderStatus.*;
 
@@ -52,12 +54,21 @@ public class RefundService {
                 + order.getStatus() + ". Order must be in PAID, PROCESSING, SHIPPED, DELIVERED, or COMPLETED.");
         }
 
-        // No active or executed refund request already
-        boolean hasExecuted = refundRequestRepository.findByOrder_IdOrderByCreatedAtAsc(orderId)
-            .stream().anyMatch(r -> r.getStatus() == RefundRequestStatus.EXECUTED);
+        // Acquire Payment lock to serialize concurrent submission attempts
+        paymentRepository.findByOrder_IdWithLock(orderId)
+            .orElseThrow(() -> new IllegalStateException("No payment found for order " + orderId));
+
+        // No executed or pending-approval refund request already
+        List<RefundRequest> existing = refundRequestRepository.findByOrder_IdOrderByCreatedAtAsc(orderId);
+        boolean hasExecuted = existing.stream().anyMatch(r -> r.getStatus() == RefundRequestStatus.EXECUTED);
         if (hasExecuted) {
             throw new IllegalStateException("Order " + orderId
                 + " already has an executed refund. No further refund requests may be submitted.");
+        }
+        boolean hasPendingApproval = existing.stream().anyMatch(r -> r.getStatus() == RefundRequestStatus.PENDING_APPROVAL);
+        if (hasPendingApproval) {
+            throw new IllegalStateException("Order " + orderId
+                + " already has a refund request pending approval. Submit only one at a time.");
         }
 
         // amount must equal order total (full refund only)
@@ -117,8 +128,14 @@ public class RefundService {
         rr.setStatus(RefundRequestStatus.APPROVED);
 
         // a. Payment → REFUNDED + write PAYMENT_REFUNDED event
-        Payment payment = paymentRepository.findByOrder_Id(rr.getOrder().getId())
+        // Pessimistic lock on Payment serializes concurrent approvals for the same order
+        Payment payment = paymentRepository.findByOrder_IdWithLock(rr.getOrder().getId())
             .orElseThrow(() -> new IllegalStateException("No payment found for order " + rr.getOrder().getId()));
+        if (payment.getStatus() == PaymentStatus.REFUNDED) {
+            // Another approval already executed — treat as conflict, not a new FAILED state
+            throw new RefundAlreadyProcessedException(
+                "Payment for order " + rr.getOrder().getId() + " is already REFUNDED — duplicate refund prevented.");
+        }
         if (!payment.getStatus().canTransitionTo(PaymentStatus.REFUNDED)) {
             throw new IllegalStateException("Payment " + payment.getId() + " cannot transition to REFUNDED from " + payment.getStatus());
         }
@@ -183,11 +200,28 @@ public class RefundService {
     }
 
     private void restoreInventory(Long orderId) {
+        List<OrderItem> orderItems = orderItemRepository.findByOrder_IdOrderByIdAsc(orderId);
         List<InventoryAllocation> allocations = inventoryAllocationRepository.findByOrderId(orderId);
-        if (allocations.isEmpty()) {
-            log.warn("No allocation records found for order {} — stock not restored", orderId);
-            return;
+
+        // Build map: orderItemId → total committed quantity
+        Map<Long, Integer> committedByItem = allocations.stream()
+            .collect(Collectors.groupingBy(
+                a -> a.getOrderItem().getId(),
+                Collectors.summingInt(InventoryAllocation::getQuantityCommitted)));
+
+        // Fail closed: every order item must have allocations that sum to its ordered quantity.
+        // Incomplete provenance (missing or partial records) means we cannot determine which
+        // inventory rows to restore — throw to roll back the refund transaction.
+        for (OrderItem item : orderItems) {
+            int committed = committedByItem.getOrDefault(item.getId(), 0);
+            if (committed != item.getQuantity()) {
+                throw new IllegalStateException(
+                    "Allocation provenance incomplete for order " + orderId +
+                    ": orderItem " + item.getId() + " has quantity=" + item.getQuantity() +
+                    " but committed=" + committed + ". Cannot safely restore inventory.");
+            }
         }
+
         for (InventoryAllocation alloc : allocations) {
             Inventory inv = alloc.getInventory();
             inv.setQuantity(inv.getQuantity() + alloc.getQuantityCommitted());

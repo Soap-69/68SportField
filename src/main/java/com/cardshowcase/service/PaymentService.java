@@ -274,6 +274,7 @@ public class PaymentService {
             for (Inventory inv : rows) {
                 if (remaining <= 0) break;
                 int deduct = Math.min(remaining, inv.getQuantity());
+                if (deduct <= 0) continue; // zero-stock row — skip, do not create zero-quantity allocation
                 inv.setQuantity(inv.getQuantity() - deduct);
                 inventoryRepository.save(inv); // may throw OLE → propagates to caller
                 inventoryAllocationRepository.save(InventoryAllocation.builder()

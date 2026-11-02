@@ -14,6 +14,7 @@ import org.springframework.mock.web.MockCookie;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
     @Autowired PaymentEventRepository paymentEventRepository;
     @Autowired ShipmentRepository shipmentRepository;
     @Autowired RefundRequestRepository refundRequestRepository;
+    @Autowired InventoryAllocationRepository inventoryAllocationRepository;
     @Autowired OrderService orderService;
     @Autowired ShippingService shippingService;
     @Autowired RefundService refundService;
@@ -514,6 +516,145 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
 
         // Nothing was persisted
         assertThat(refundRequestRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId())).isEmpty();
+    }
+
+    // ── Test 12: Concurrent submission — exactly one PENDING_APPROVAL created ─
+
+    @Test
+    void concurrent_submission_exactlyOnePendingApprovalCreated() throws Exception {
+        Order order = createPaidOrder();
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int i = 0; i < 2; i++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    var resp = mockMvc.perform(post("/admin/api/orders/" + order.getId() + "/refund-requests")
+                                    .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                                    .with(csrf())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(refundRequestBody(order.getTotal())))
+                            .andReturn();
+                    return resp.getResponse().getStatus();
+                } catch (Exception e) {
+                    return 500;
+                }
+            }));
+        }
+        executor.shutdown();
+
+        List<Integer> statuses = new ArrayList<>();
+        for (Future<Integer> f : futures) {
+            statuses.add(f.get());
+        }
+
+        // Exactly one submission must succeed
+        long successCount = statuses.stream().filter(s -> s == 200).count();
+        assertThat(successCount).isEqualTo(1);
+
+        // Exactly one PENDING_APPROVAL in database
+        List<RefundRequest> rrs = refundRequestRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId());
+        long pendingCount = rrs.stream().filter(r -> r.getStatus() == RefundRequestStatus.PENDING_APPROVAL).count();
+        assertThat(pendingCount).isEqualTo(1);
+    }
+
+    // ── Test 13: Two distinct PENDING_APPROVAL RRs — concurrent approval executes exactly once ─
+
+    @Test
+    void twoDistinctPendingApprovals_concurrentApproval_exactlyOneExecutes() throws Exception {
+        Order order = createPaidOrder();
+        int stockBefore = inventoryService.getTotalStock(variant.getId());
+
+        // Bypass submission guard by creating RRs directly in repository
+        RefundRequest rr1 = refundRequestRepository.save(RefundRequest.builder()
+                .order(order).requestedAmount(order.getTotal()).reason("RR1")
+                .status(RefundRequestStatus.PENDING_APPROVAL)
+                .requestedByAdminId(seniorAdmin.getId())
+                .requestedAt(LocalDateTime.now()).build());
+        RefundRequest rr2 = refundRequestRepository.save(RefundRequest.builder()
+                .order(order).requestedAmount(order.getTotal()).reason("RR2")
+                .status(RefundRequestStatus.PENDING_APPROVAL)
+                .requestedByAdminId(seniorAdmin.getId())
+                .requestedAt(LocalDateTime.now()).build());
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (long rrId : new long[]{rr1.getId(), rr2.getId()}) {
+            futures.add(executor.submit(() -> {
+                try {
+                    var resp = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
+                                    .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                                    .with(csrf()))
+                            .andReturn();
+                    return resp.getResponse().getStatus();
+                } catch (Exception e) {
+                    return 500;
+                }
+            }));
+        }
+        executor.shutdown();
+
+        List<Integer> statuses = new ArrayList<>();
+        for (Future<Integer> f : futures) {
+            statuses.add(f.get());
+        }
+
+        // Exactly one approval must succeed
+        long successCount = statuses.stream().filter(s -> s == 200).count();
+        assertThat(successCount).isEqualTo(1);
+
+        // Payment refunded exactly once — one PAYMENT_REFUNDED event
+        Payment payment = paymentRepository.findByOrder_Id(order.getId()).orElseThrow();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        long refundEvents = paymentEventRepository.findByPayment_IdOrderByCreatedAtAsc(payment.getId())
+                .stream().filter(e -> e.getEventType() == PaymentEventType.PAYMENT_REFUNDED).count();
+        assertThat(refundEvents).isEqualTo(1);
+
+        // Inventory restored exactly once
+        int stockAfter = inventoryService.getTotalStock(variant.getId());
+        assertThat(stockAfter).isEqualTo(stockBefore + 1);
+    }
+
+    // ── Test 14: Missing allocation provenance → refund fails closed (FAILED status) ─
+
+    @Test
+    void missingAllocationProvenance_refundFailsClosed() throws Exception {
+        Order order = createPaidOrder();
+
+        // Delete all allocation records to simulate missing provenance
+        List<InventoryAllocation> allocs = inventoryAllocationRepository.findByOrderId(order.getId());
+        assertThat(allocs).isNotEmpty(); // confirm they were created by payment
+        inventoryAllocationRepository.deleteAll(allocs);
+
+        // Submit refund request
+        var submitResult = mockMvc.perform(post("/admin/api/orders/" + order.getId() + "/refund-requests")
+                        .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refundRequestBody(order.getTotal())))
+                .andExpect(status().isOk())
+                .andReturn();
+        long rrId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asLong();
+
+        // Approve — must fail because allocation provenance is missing (RefundExecutionException → 422)
+        mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
+                        .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isUnprocessableEntity());
+
+        // RefundRequest is FAILED (not EXECUTED)
+        RefundRequest rr = refundRequestRepository.findById(rrId).orElseThrow();
+        assertThat(rr.getStatus()).isEqualTo(RefundRequestStatus.FAILED);
+
+        // Payment is still SUCCEEDED (refund business effects were rolled back)
+        Payment payment = paymentRepository.findByOrder_Id(order.getId()).orElseThrow();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+
+        // Order is still PAID
+        Order reloaded = orderRepository.findById(order.getId()).orElseThrow();
+        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.PAID);
     }
 
     // ── Test 11: Concurrent approval — exactly one succeeds ──────────────

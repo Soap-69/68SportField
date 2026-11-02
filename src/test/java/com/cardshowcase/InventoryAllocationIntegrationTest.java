@@ -345,6 +345,32 @@ class InventoryAllocationIntegrationTest extends BaseIntegrationTest {
         assertThat(allocs).isEmpty();
     }
 
+    // ── H: Zero-stock row at locationA → no zero-quantity allocation created ────
+
+    @Test
+    void H_zeroStockRow_noZeroAllocationCreated_andRefundRestoresCorrectly() throws Exception {
+        // locationA has 0 stock (active row, zero quantity), locationB has 10
+        inventoryService.setStock(variant.getId(), locationA.getId(), 0);
+        inventoryService.setStock(variant.getId(), locationB.getId(), 10);
+
+        // Buy 5 — should drain from locationB only (locationA has none to give)
+        Order order = checkoutAndPay(5);
+
+        // Only one allocation: locationB → 5 (no zero-quantity allocation for locationA)
+        List<InventoryAllocation> allocs = inventoryAllocationRepository.findByOrderId(order.getId());
+        assertThat(allocs).hasSize(1);
+        assertThat(allocs.get(0).getQuantityCommitted()).isEqualTo(5);
+
+        // locationB stock deducted correctly
+        Inventory invB = inventoryRepository.findByVariantIdAndLocationId(variant.getId(), locationB.getId()).orElseThrow();
+        assertThat(invB.getQuantity()).isEqualTo(5);
+
+        // Refund restores exactly the committed amount to locationB
+        submitAndApproveRefund(order);
+        Inventory invBAfter = inventoryRepository.findByVariantIdAndLocationId(variant.getId(), locationB.getId()).orElseThrow();
+        assertThat(invBAfter.getQuantity()).isEqualTo(10);
+    }
+
     // ── G: Duplicate/concurrent refund approval: allocation restored exactly once ─
 
     @Test
