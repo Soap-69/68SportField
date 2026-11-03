@@ -29,6 +29,7 @@ class CustomerAuthServiceTest {
     @Autowired private CustomerAddressRepository addressRepository;
     @Autowired private PaymentEventRepository paymentEventRepository;
     @Autowired private PaymentRepository paymentRepository;
+    @Autowired private NotificationLogRepository notificationLogRepository;
 
     private RegisterDTO validDto() {
         RegisterDTO dto = new RegisterDTO();
@@ -47,6 +48,7 @@ class CustomerAuthServiceTest {
         orderItemRepository.deleteAll();
         paymentEventRepository.deleteAll();
         paymentRepository.deleteAll();
+        notificationLogRepository.deleteAll();
         orderRepository.deleteAll();
         cartItemRepository.deleteAll();
         cartRepository.deleteAll();

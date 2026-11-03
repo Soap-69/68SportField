@@ -42,6 +42,15 @@ spring:
 
 app:
   upload-dir: ./uploads
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  mail:
+    reply-to: order@68sportfield.com
+  # Merchant identity for emails and the invoice. No defaults: blank means not provided,
+  # and the corresponding block is omitted rather than invented.
+  merchant:
+    display-name: ${APP_MERCHANT_DISPLAY_NAME:}
+    legal-name: ${APP_MERCHANT_LEGAL_NAME:}
+    address: ${APP_MERCHANT_ADDRESS:}
   notification:
     admin-email: ${ADMIN_EMAIL:}
     enabled: true

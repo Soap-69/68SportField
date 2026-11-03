@@ -54,6 +54,11 @@
                 <span th:case="'REFUNDED'"        style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(142,142,147,0.2);color:#aeaeb2;">Refunded</span>
                 <span th:case="*"                 style="padding:4px 12px;border-radius:980px;font-size:12px;font-weight:600;background:rgba(142,142,147,0.2);color:#aeaeb2;" th:text="${order.status.name()}">Unknown</span>
               </span>
+              <!-- Main-payment invoice: available once the payment has succeeded (or been refunded). -->
+              <p th:if="${invoiceAvailable}" style="margin:12px 0 0;">
+                <a th:href="@{/account/orders/{id}/invoice.pdf(id=${order.id})}"
+                   style="color:#64b5f6;font-size:13px;text-decoration:none;">Download invoice (PDF)</a>
+              </p>
             </div>
           </div>
 

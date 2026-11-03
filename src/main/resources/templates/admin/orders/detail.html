@@ -205,6 +205,58 @@
                 </div>
             </div>
 
+            <!-- Notifications -->
+            <div class="card border-0 shadow-sm mb-4" th:if="${!notifications.isEmpty()}">
+                <div class="card-header bg-transparent fw-semibold py-3">
+                    <i class="bi bi-envelope me-2"></i>Notifications
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-3">Type</th>
+                                <th>Recipient</th>
+                                <th>Status</th>
+                                <th>Attempts</th>
+                                <th>Sent At</th>
+                                <th>Last Error</th>
+                                <th class="px-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="n : ${notifications}">
+                                <td class="px-3" th:text="${n.type.name()}"></td>
+                                <td th:text="${n.recipient}"></td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${n.status.name() == 'SENT'} ? 'bg-success' :
+                                                          (${n.status.name() == 'FAILED'} ? 'bg-danger' :
+                                                          (${n.status.name() == 'SENDING'} ? 'bg-info' : 'bg-warning text-dark'))"
+                                          th:text="${n.status.name()}">STATUS</span>
+                                </td>
+                                <td th:text="${n.attempts}"></td>
+                                <td th:text="${n.sentAt != null ? #temporals.format(n.sentAt, 'MMM d, yyyy HH:mm') : ''}"></td>
+                                <td class="small text-muted" th:text="${n.lastError}"></td>
+                                <td class="px-3">
+                                    <!-- Resend goes through the same claim as automatic delivery; SENT/SENDING rows are never resent. -->
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            th:if="${n.status.name() != 'SENT' and n.status.name() != 'SENDING'}"
+                                            th:data-action-url="@{/admin/api/orders/{id}/notifications/{type}/resend(id=${order.id},type=${n.type.name()})}">
+                                        Resend
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="small text-muted px-3 py-2 mb-0">
+                        At most one delivery attempt per claim; idempotent business replays never create a second
+                        notification record. If the mail server accepted a message but the process failed before the
+                        record was marked SENT, a manual resend can deliver that message a second time. Exactly-once
+                        end-to-end delivery is not guaranteed.
+                    </p>
+                </div>
+            </div>
+
         </div>
 
         <!-- Right column -->
@@ -380,6 +432,13 @@
                             <i class="bi bi-arrow-counterclockwise me-1"></i>Submit Refund Request
                         </button>
                     </form>
+
+                    <!-- Main-payment invoice: available once Payment is SUCCEEDED or REFUNDED. -->
+                    <a th:if="${invoiceAvailable}"
+                       th:href="@{/admin/orders/{id}/invoice.pdf(id=${order.id})}"
+                       class="btn btn-outline-dark btn-sm">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Download Invoice (PDF)
+                    </a>
 
                     <!--
                         Terminal/no-action states.

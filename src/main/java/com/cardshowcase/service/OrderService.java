@@ -4,6 +4,7 @@ import com.cardshowcase.exception.IdempotencyConflictException;
 import com.cardshowcase.exception.InsufficientStockException;
 import com.cardshowcase.model.dto.CheckoutRequest;
 import com.cardshowcase.model.entity.*;
+import com.cardshowcase.notification.NotificationService;
 import com.cardshowcase.repository.*;
 import com.cardshowcase.shipping.ShippingQuote;
 import com.cardshowcase.spec.OrderSpecification;
@@ -43,6 +44,8 @@ public class OrderService {
     private final CustomerAddressRepository customerAddressRepository;
     private final ShippingService shippingService;
     private final ShipmentRepository shipmentRepository;
+    private final TaxService taxService;
+    private final NotificationService notificationService;
 
     @PersistenceContext
     private EntityManager em;
@@ -181,7 +184,7 @@ public class OrderService {
         BigDecimal shipping = shippingQuote.isResolved()
                 ? shippingQuote.amount() : BigDecimal.ZERO;
 
-        BigDecimal tax   = BigDecimal.ZERO; // deferred
+        BigDecimal tax   = taxService.calculateTax(subtotal);
         BigDecimal total = subtotal.add(shipping).add(tax);
 
         // 8. Persist order
@@ -247,6 +250,9 @@ public class OrderService {
         if (!shippingQuote.isAkHiDeferred()) {
             shippingService.initializeShipmentForOrder(order, serviceLevel, shippingQuote);
         }
+
+        // 12. Notification record commits with this transaction; delivery runs after commit.
+        notificationService.enqueue(order, NotificationType.ORDER_RECEIVED);
 
         log.info("Order created: {} (customer={}, guest={}, shippingQuote={})",
                 order.getOrderNumber(), customerId, order.getGuestEmail(), shippingQuote.status());
@@ -387,6 +393,7 @@ public class OrderService {
         order = orderRepository.save(order);
         shipment.setShippedAt(java.time.LocalDateTime.now());
         shipmentRepository.save(shipment);
+        notificationService.enqueue(order, NotificationType.SHIPPED);
         log.info("Order {} dispatched: PROCESSING → SHIPPED, shippedAt recorded", order.getOrderNumber());
         return order;
     }

@@ -19,12 +19,13 @@ import static org.assertj.core.api.Assertions.*;
 class ShippingServiceUnitTest {
 
     @Mock ShipmentRepository shipmentRepository;
+    @Mock com.cardshowcase.notification.NotificationService notificationService;
 
     ShippingService shippingService;
 
     @BeforeEach
     void setUp() {
-        shippingService = new ShippingService(shipmentRepository);
+        shippingService = new ShippingService(shipmentRepository, notificationService);
     }
 
     // ── calculateQuote: continental US rules ─────────────────────────

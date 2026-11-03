@@ -6,6 +6,7 @@ import com.cardshowcase.model.entity.CustomerAddress;
 import com.cardshowcase.service.CartService;
 import com.cardshowcase.service.CustomerAddressService;
 import com.cardshowcase.service.CustomerPrincipal;
+import com.cardshowcase.service.TaxService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,7 @@ public class CheckoutController {
 
     private final CartService cartService;
     private final CustomerAddressService addressService;
+    private final TaxService taxService;
 
     /**
      * GET /checkout — gateway page.
@@ -59,7 +61,7 @@ public class CheckoutController {
         List<CustomerAddress> addresses = addressService.getAddressesByCustomer(principal.getId());
         BigDecimal subtotal  = cartService.getCartSubtotal(cart);
         BigDecimal shipping  = BigDecimal.ZERO; // deferred
-        BigDecimal tax       = BigDecimal.ZERO; // deferred
+        BigDecimal tax       = taxService.calculateTax(subtotal);
         BigDecimal total     = subtotal.add(shipping).add(tax);
 
         model.addAttribute("cartItems",      items);

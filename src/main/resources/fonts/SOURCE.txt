@@ -1,0 +1,12 @@
+Noto Sans CJK SC Regular, release Sans2.004
+Source: https://github.com/notofonts/noto-cjk/blob/Sans2.004/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
+License: SIL Open Font License 1.1 (see OFL.txt)
+License source: https://github.com/notofonts/noto-cjk/blob/main/Sans/LICENSE
+SHA-256: 2C76254F6FC379FDDFCE0A7E84FB5385BB135D3E399294F6EEB6680D0365B74B
+Unmodified font, bundled for invoice rendering. OpenPDF embeds a subset in each PDF.
+
+Noto Sans Regular
+Source: https://github.com/notofonts/noto-fonts/blob/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf
+License: SIL Open Font License 1.1 (see NotoSans-OFL.txt)
+SHA-256: B85C38ECEA8A7CFB39C24E395A4007474FA5A4FC864F6EE33309EB4948D232D5
+Unmodified font, bundled for Latin extended invoice text.

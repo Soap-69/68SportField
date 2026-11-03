@@ -1,11 +1,14 @@
 package com.cardshowcase.controller.admin;
 
+import com.cardshowcase.exception.InvoiceUnavailableException;
 import com.cardshowcase.model.entity.Order;
 import com.cardshowcase.model.entity.OrderStatus;
 import com.cardshowcase.model.entity.RefundRequest;
 import com.cardshowcase.model.entity.RefundRequestStatus;
 import com.cardshowcase.model.entity.Shipment;
 import com.cardshowcase.model.entity.ShippingPaymentStatus;
+import com.cardshowcase.repository.NotificationLogRepository;
+import com.cardshowcase.service.InvoiceService;
 import com.cardshowcase.service.OrderService;
 import com.cardshowcase.service.PaymentService;
 import com.cardshowcase.service.RefundService;
@@ -16,6 +19,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +42,8 @@ public class AdminOrderController {
     private final PaymentService paymentService;
     private final ShippingService shippingService;
     private final RefundService refundService;
+    private final NotificationLogRepository notificationLogRepository;
+    private final InvoiceService invoiceService;
 
     @GetMapping
     public String list(
@@ -81,8 +90,28 @@ public class AdminOrderController {
         model.addAttribute("refundRequests", refundRequests);
         model.addAttribute("hasExecutedRefund", hasExecutedRefund);
         model.addAttribute("hasSupplementalShipping", hasSupplementalShipping);
+        model.addAttribute("notifications", notificationLogRepository.findByOrder_IdOrderByIdAsc(id));
+        model.addAttribute("invoiceAvailable", InvoiceService.isAvailable(payment));
         model.addAttribute("pageTitle", "Order " + order.getOrderNumber());
         model.addAttribute("currentUri", request.getRequestURI());
         return "admin/orders/detail";
+    }
+
+    /** GET /admin/orders/{id}/invoice.pdf — main-payment invoice; 409 until the payment has succeeded. */
+    @GetMapping("/{id}/invoice.pdf")
+    public ResponseEntity<?> invoicePdf(@PathVariable Long id) {
+        Order order = orderService.findById(id);
+        try {
+            byte[] pdf = invoiceService.render(order.getId());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + InvoiceService.fileName(order) + "\"")
+                    .body(pdf);
+        } catch (InvoiceUnavailableException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(java.util.Map.of("error", e.getMessage()));
+        }
     }
 }

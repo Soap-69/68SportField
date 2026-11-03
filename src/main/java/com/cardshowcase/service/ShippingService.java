@@ -1,6 +1,7 @@
 package com.cardshowcase.service;
 
 import com.cardshowcase.model.entity.*;
+import com.cardshowcase.notification.NotificationService;
 import com.cardshowcase.repository.ShipmentRepository;
 import com.cardshowcase.shipping.ShippingQuote;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class ShippingService {
             "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC");
 
     private final ShipmentRepository shipmentRepository;
+    private final NotificationService notificationService;
 
     // ── Quote calculation (pure — no side effects) ────────────────────
 
@@ -192,6 +194,7 @@ public class ShippingService {
         }
         shipment.setShippingPaymentStatus(ShippingPaymentStatus.PAYMENT_PENDING);
         shipment = shipmentRepository.save(shipment);
+        notificationService.enqueue(shipment.getOrder(), NotificationType.SHIPPING_PAYMENT_REQUESTED);
         log.info("Shipment {} (order {}): → PAYMENT_PENDING (payment requested from customer)",
                 shipment.getId(), orderId);
         return shipment;

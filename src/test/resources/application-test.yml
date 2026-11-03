@@ -17,9 +17,15 @@ spring:
   mail:
     host: localhost
     port: 25
+    username: noreply@test.local
 
 app:
   upload-dir: ./test-uploads
+  base-url: http://localhost
+  merchant:
+    display-name: Test Merchant
+    legal-name: Test Merchant LLC (test data)
+    address: 1 Test Street, Testville, MA 00000
   notification:
     admin-email: test@test.com
-    enabled: false
+    enabled: true

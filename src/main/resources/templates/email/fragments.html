@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- Shared header: table-based, inline styles, renders in Gmail. -->
+<table th:fragment="header" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;">
+  <tr>
+    <td align="center" style="padding:32px 16px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="background:#1d1d1f;padding:24px 32px;">
+            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;font-family:Helvetica,Arial,sans-serif;"
+               th:text="${merchantName != null} ? ${merchantName} : 'Order update'">Order update</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 8px;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#1d1d1f;">
+            <p style="margin:0 0 12px;" th:if="${recipientName != null}" th:text="'Hello ' + ${recipientName} + ','">Hello,</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- Order summary block used by the customer emails. -->
+<table th:fragment="orderSummary" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;">
+  <tr>
+    <td align="center" style="padding:0 16px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;">
+        <tr>
+          <td style="padding:0 32px 8px;font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#1d1d1f;">
+            <p style="margin:0 0 4px;"><strong>Order number:</strong> <span th:text="${order.orderNumber}">ORD</span></p>
+            <p style="margin:0 0 16px;"><strong>Order date:</strong> <span th:text="${orderDate}">date</span></p>
+            <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px;">
+              <tr style="background:#f5f5f7;">
+                <th align="left">Item</th><th align="left">SKU</th><th align="right">Qty</th><th align="right">Unit price</th><th align="right">Line total</th>
+              </tr>
+              <tr th:each="item : ${items}" style="border-bottom:1px solid #e5e5ea;">
+                <td th:text="${item.productName} + ' (' + ${item.variantTypeSnapshot} + ')'">Item</td>
+                <td th:text="${item.skuSnapshot}">SKU</td>
+                <td align="right" th:text="${item.quantity}">1</td>
+                <td align="right" th:text="'$' + ${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
+                <td align="right" th:text="'$' + ${#numbers.formatDecimal(item.lineSubtotal, 1, 2)}">$0.00</td>
+              </tr>
+            </table>
+            <table width="100%" cellpadding="4" cellspacing="0" style="font-size:13px;margin-top:12px;">
+              <tr><td align="right">Subtotal:</td><td align="right" width="110" th:text="'$' + ${#numbers.formatDecimal(order.subtotal, 1, 2)}">$0.00</td></tr>
+              <tr><td align="right">Shipping:</td><td align="right" th:text="'$' + ${#numbers.formatDecimal(order.shippingAmount, 1, 2)}">$0.00</td></tr>
+              <tr><td align="right">Tax:</td><td align="right" th:text="'$' + ${#numbers.formatDecimal(order.taxAmount, 1, 2)}">$0.00</td></tr>
+              <tr><td align="right"><strong th:text="${hasSupplementalShipping} ? 'Main-payment total:' : 'Total:'">Total:</strong></td><td align="right"><strong th:text="'$' + ${#numbers.formatDecimal(order.total, 1, 2)}">$0.00</strong></td></tr>
+            </table>
+            <p th:if="${hasSupplementalShipping}" style="margin:12px 0;">
+              <strong>Supplemental shipping (not included above):</strong>
+              <span th:text="${shippingLine}">Quote required</span>
+            </p>
+            <p style="margin:16px 0 4px;"><strong>Shipping address</strong></p>
+            <p style="margin:0;line-height:1.5;">
+              <span th:text="${order.shippingFirstName} + ' ' + ${order.shippingLastName}">Name</span><br>
+              <span th:text="${order.shippingAddressLine1}">Line 1</span><br>
+              <span th:if="${order.shippingAddressLine2 != null and !order.shippingAddressLine2.isBlank()}"><span th:text="${order.shippingAddressLine2}">Line 2</span><br></span>
+              <span th:text="${order.shippingCity} + ', ' + ${order.shippingState} + ' ' + ${order.shippingZip}">City</span><br>
+              <span th:text="${order.shippingCountry}">US</span>
+            </p>
+            <p style="margin:16px 0 0;" th:if="${customerLink != null}">
+              <a th:href="${customerLink}" style="color:#0071e3;">View this order in your account</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- Shared footer -->
+<table th:fragment="footer" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;">
+  <tr>
+    <td align="center" style="padding:0 16px 32px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:0 0 12px 12px;">
+        <tr>
+          <td style="padding:16px 32px 28px;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#6e6e73;">
+            <p style="margin:0 0 6px;">Questions? Reply to <a th:href="'mailto:' + ${replyTo}" th:text="${replyTo}" style="color:#0071e3;">reply</a>.</p>
+            <p style="margin:0;" th:if="${merchantName != null}" th:text="${merchantName}">Merchant</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

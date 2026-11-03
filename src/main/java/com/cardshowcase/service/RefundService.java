@@ -3,6 +3,7 @@ package com.cardshowcase.service;
 import com.cardshowcase.exception.RefundAlreadyProcessedException;
 import com.cardshowcase.exception.RefundExecutionException;
 import com.cardshowcase.model.entity.*;
+import com.cardshowcase.notification.NotificationService;
 import com.cardshowcase.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class RefundService {
     private final InventoryRepository inventoryRepository;
     private final InventoryAllocationRepository inventoryAllocationRepository;
     private final AdminUserRepository adminUserRepository;
+    private final NotificationService notificationService;
 
     /** Creates RefundRequest in PENDING_APPROVAL status */
     @Transactional
@@ -161,6 +163,7 @@ public class RefundService {
         rr.setReviewedByAdminId(reviewedByAdminId);
         rr.setReviewedAt(LocalDateTime.now());
         rr.setExecutedAt(LocalDateTime.now());
+        notificationService.enqueue(order, NotificationType.REFUND_EXECUTED);
         return refundRequestRepository.save(rr);
     }
 

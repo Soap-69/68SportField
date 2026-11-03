@@ -35,6 +35,7 @@ class PaymentServiceUnitTest {
     @Mock InventoryRepository inventoryRepository;
     @Mock InventoryAllocationRepository inventoryAllocationRepository;
     @Mock OrderService orderService;
+    @Mock com.cardshowcase.notification.NotificationService notificationService;
     @Mock EntityManager em;
     @InjectMocks PaymentService paymentService;
 

@@ -31,8 +31,12 @@ server:
 
 app:
   upload-dir: /app/uploads
+  base-url: https://68sportfield.com
   notification:
     admin-email: ${ADMIN_EMAIL:}
+    # Stays false until the production JVM timezone and historical write zone are
+    # confirmed (Week 8 D7 gate) and SMTP credentials are verified. Note that this
+    # flag gates emails only; the invoice download endpoints print dates regardless.
     enabled: ${APP_NOTIFICATION_ENABLED:false}
 
 logging:

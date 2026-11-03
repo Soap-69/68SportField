@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head><meta charset="UTF-8"><title>Refund issued</title></head>
+<body style="margin:0;padding:0;background:#f5f5f7;">
+<div th:replace="~{email/fragments :: header}"></div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;">
+  <tr><td align="center" style="padding:0 16px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;">
+      <tr><td style="padding:0 32px 16px;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#1d1d1f;">
+        <p style="margin:0 0 8px;font-weight:600;">Your refund has been issued.</p>
+        <p style="margin:0 0 4px;"><strong>Refunded amount:</strong>
+          <span th:text="'$' + ${#numbers.formatDecimal(paymentAmount, 1, 2)}">$0.00</span></p>
+        <p style="margin:0;" th:if="${refundDate != null}"><strong>Refund date:</strong> <span th:text="${refundDate}">date</span></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+<div th:replace="~{email/fragments :: orderSummary}"></div>
+<div th:replace="~{email/fragments :: footer}"></div>
+</body>
+</html>

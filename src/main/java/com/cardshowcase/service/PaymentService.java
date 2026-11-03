@@ -3,6 +3,7 @@ package com.cardshowcase.service;
 import com.cardshowcase.exception.IdempotencyConflictException;
 import com.cardshowcase.exception.PaymentConcurrencyException;
 import com.cardshowcase.model.entity.*;
+import com.cardshowcase.notification.NotificationService;
 import com.cardshowcase.payment.GatewayOutcome;
 import com.cardshowcase.payment.PaymentConfirmationResult;
 import com.cardshowcase.payment.PaymentResult;
@@ -31,6 +32,7 @@ public class PaymentService {
     private final InventoryRepository inventoryRepository;
     private final InventoryAllocationRepository inventoryAllocationRepository;
     private final OrderService orderService;
+    private final NotificationService notificationService;
 
     @PersistenceContext
     private EntityManager em;
@@ -217,6 +219,10 @@ public class PaymentService {
 
         // 5. Transition order to PAID
         orderService.transitionTo(order, OrderStatus.PAID);
+
+        // 6. Notification records commit with this transaction; delivery runs after commit.
+        notificationService.enqueue(order, NotificationType.PAYMENT_CONFIRMED);
+        notificationService.enqueue(order, NotificationType.ADMIN_NEW_PAID_ORDER);
 
         log.info("Payment {} SUCCEEDED for order {} (provider={}, providerPaymentId={})",
                 paymentId, order.getOrderNumber(), payment.getProvider(),

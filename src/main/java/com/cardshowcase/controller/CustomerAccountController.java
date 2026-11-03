@@ -4,14 +4,21 @@ import com.cardshowcase.model.dto.AddressDTO;
 import com.cardshowcase.model.dto.ProfileUpdateDTO;
 import com.cardshowcase.model.entity.Customer;
 import com.cardshowcase.model.entity.CustomerAddress;
+import com.cardshowcase.exception.InvoiceUnavailableException;
 import com.cardshowcase.model.entity.Order;
 import com.cardshowcase.model.entity.Shipment;
 import com.cardshowcase.service.CustomerAddressService;
 import com.cardshowcase.service.CustomerAuthService;
+import com.cardshowcase.service.InvoiceService;
 import com.cardshowcase.service.OrderService;
+import com.cardshowcase.service.PaymentService;
 import com.cardshowcase.service.ShippingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -29,6 +36,8 @@ public class CustomerAccountController {
     private final CustomerAddressService addressService;
     private final OrderService orderService;
     private final ShippingService shippingService;
+    private final PaymentService paymentService;
+    private final InvoiceService invoiceService;
 
     // ── Dashboard ────────────────────────────────────────────────
 
@@ -194,6 +203,8 @@ public class CustomerAccountController {
             Shipment shipment = shippingService.findByOrderId(order.getId()).orElse(null);
             model.addAttribute("order", order);
             model.addAttribute("shipment", shipment);
+            model.addAttribute("invoiceAvailable",
+                    InvoiceService.isAvailable(paymentService.findByOrderId(order.getId()).orElse(null)));
             return "account/order-detail";
         } catch (SecurityException e) {
             redirectAttributes.addFlashAttribute("errorMessage", "You do not have access to that order.");
@@ -201,6 +212,36 @@ public class CustomerAccountController {
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Order not found.");
             return "redirect:/account/orders";
+        }
+    }
+
+    /**
+     * GET /account/orders/{id}/invoice.pdf — main-payment invoice for the owner only.
+     * Ownership is checked before availability: a non-owner gets 403 whether or not an
+     * invoice exists, so the response never reveals another customer's payment state.
+     */
+    @GetMapping("/orders/{id}/invoice.pdf")
+    public ResponseEntity<?> invoicePdf(@PathVariable Long id) {
+        Customer customer = customerAuthService.getCurrentCustomer();
+        Order order;
+        try {
+            order = orderService.findByIdForCustomer(id, customer.getId());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        try {
+            byte[] pdf = invoiceService.render(order.getId());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + InvoiceService.fileName(order) + "\"")
+                    .body(pdf);
+        } catch (InvoiceUnavailableException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(java.util.Map.of("error", e.getMessage()));
         }
     }
 
