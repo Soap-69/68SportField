@@ -25,6 +25,12 @@ spring:
             enable: true
 
 server:
+  servlet:
+    session:
+      cookie:
+        # The site is HTTPS-only at the edge; the app itself sits behind a plain-HTTP proxy
+        # and does not read forwarded headers, so the flag must be explicit (Week 9 O2).
+        secure: true
   compression:
     enabled: true
     mime-types: text/html,text/css,application/javascript,application/json
@@ -32,6 +38,9 @@ server:
 app:
   upload-dir: /app/uploads
   base-url: https://68sportfield.com
+  cart:
+    cookie:
+      secure: true
   notification:
     admin-email: ${ADMIN_EMAIL:}
     # Stays false until the production JVM timezone and historical write zone are

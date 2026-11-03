@@ -51,6 +51,11 @@
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span>Invalid username or password. Please try again.</span>
                 </div>
+                <div th:if="${param.locked}"
+                     class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span>Too many sign-in attempts. Please try again later.</span>
+                </div>
                 <div th:if="${param.logout}"
                      class="alert alert-info d-flex align-items-center gap-2 py-2" role="alert">
                     <i class="bi bi-check-circle-fill"></i>

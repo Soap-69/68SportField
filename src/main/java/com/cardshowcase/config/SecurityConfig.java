@@ -1,12 +1,18 @@
 package com.cardshowcase.config;
 
 import com.cardshowcase.repository.AdminUserRepository;
+import com.cardshowcase.security.LoginAttemptLimiter;
+import com.cardshowcase.security.Realm;
+import com.cardshowcase.security.ThrottlingAuthenticationProvider;
 import com.cardshowcase.service.CustomLoginSuccessHandler;
 import com.cardshowcase.service.CustomerUserDetailsService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -15,9 +21,15 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.ExceptionMappingAuthenticationFailureHandler;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+import java.time.Clock;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -42,10 +54,29 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // ── Login attempt budgets (Week 9) ─────────────────────────────
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean
+    public LoginAttemptLimiter adminLoginLimiter(Clock clock) {
+        return new LoginAttemptLimiter(Realm.ADMIN, clock);
+    }
+
+    @Bean
+    public LoginAttemptLimiter customerLoginLimiter(Clock clock) {
+        return new LoginAttemptLimiter(Realm.CUSTOMER, clock);
+    }
+
     // ── Chain 1: Admin (highest priority, scoped to /admin/**) ────
     @Bean
     @Order(1)
-    public SecurityFilterChain adminSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain adminSecurityFilterChain(HttpSecurity http,
+                                                        @Qualifier("adminLoginLimiter") LoginAttemptLimiter adminLoginLimiter)
+            throws Exception {
         http
             .securityMatcher("/admin/**")
             .authorizeHttpRequests(auth -> auth
@@ -63,7 +94,7 @@ public class SecurityConfig {
                 .loginPage("/admin/login")
                 .loginProcessingUrl("/admin/login")
                 .defaultSuccessUrl("/admin", true)
-                .failureUrl("/admin/login?error")
+                .failureHandler(lockedAwareFailureHandler("/admin/login"))
                 .permitAll()
             )
             .logout(logout -> logout
@@ -71,14 +102,20 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/admin/login?logout")
                 .permitAll()
             )
-            .authenticationProvider(adminAuthenticationProvider());
+            // Explicit manager with no parent: the chain authenticates admins only. Without
+            // this, Spring Security's auto-configured global manager (built from the single
+            // UserDetailsService bean, i.e. customers) acted as a fallback for both chains.
+            .authenticationManager(new ProviderManager(List.of(
+                new ThrottlingAuthenticationProvider(adminAuthenticationProvider(), Realm.ADMIN, adminLoginLimiter))));
         return http.build();
     }
 
     // ── Chain 2: Customer + Public (everything not under /admin/**) ─
     @Bean
     @Order(2)
-    public SecurityFilterChain customerSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain customerSecurityFilterChain(HttpSecurity http,
+                                                           @Qualifier("customerLoginLimiter") LoginAttemptLimiter customerLoginLimiter)
+            throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
 
@@ -94,7 +131,7 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // Stateless API endpoints
-                .requestMatchers("/api/cart/**", "/api/inquiry", "/api/payment/webhook/**").permitAll()
+                .requestMatchers("/api/cart/**", "/api/inquiry").permitAll()
 
                 // Static resources
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
@@ -105,7 +142,7 @@ public class SecurityConfig {
                 .loginPage("/login")
                 .loginProcessingUrl("/login")
                 .defaultSuccessUrl("/account", true)
-                .failureUrl("/login?error")
+                .failureHandler(lockedAwareFailureHandler("/login"))
                 .successHandler(customLoginSuccessHandler)
                 .permitAll()
             )
@@ -164,12 +201,21 @@ public class SecurityConfig {
                     }
                 })
                 .ignoringRequestMatchers(
-                    new AntPathRequestMatcher("/api/inquiry"),
-                    new AntPathRequestMatcher("/api/payment/webhook/**")
+                    new AntPathRequestMatcher("/api/inquiry")
                 )
             )
-            .authenticationProvider(customerAuthenticationProvider());
+            // Explicit manager with no parent (see the admin chain).
+            .authenticationManager(new ProviderManager(List.of(
+                new ThrottlingAuthenticationProvider(customerAuthenticationProvider(), Realm.CUSTOMER, customerLoginLimiter))));
         return http.build();
+    }
+
+    /** Existing {@code ?error} redirect for every failure except a refused (locked/saturated) attempt. */
+    private static AuthenticationFailureHandler lockedAwareFailureHandler(String loginPage) {
+        var handler = new ExceptionMappingAuthenticationFailureHandler();
+        handler.setExceptionMappings(Map.of(LockedException.class.getName(), loginPage + "?locked"));
+        handler.setDefaultFailureUrl(loginPage + "?error");
+        return handler;
     }
 
     // ── Authentication providers ──────────────────────────────────

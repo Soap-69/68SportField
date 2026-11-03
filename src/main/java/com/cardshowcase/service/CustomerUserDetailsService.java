@@ -1,6 +1,7 @@
 package com.cardshowcase.service;
 
 import com.cardshowcase.repository.CustomerRepository;
+import com.cardshowcase.security.CustomerEmail;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -15,7 +16,7 @@ public class CustomerUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        var customer = customerRepository.findByEmailIgnoreCase(email)
+        var customer = customerRepository.findByEmailIgnoreCase(CustomerEmail.normalize(email))
                 .orElseThrow(() -> new UsernameNotFoundException("Customer not found: " + email));
         if (Boolean.FALSE.equals(customer.getIsActive())) {
             throw new UsernameNotFoundException("Customer account is inactive: " + email);

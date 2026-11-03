@@ -4,6 +4,7 @@ import com.cardshowcase.model.dto.ProfileUpdateDTO;
 import com.cardshowcase.model.dto.RegisterDTO;
 import com.cardshowcase.model.entity.Customer;
 import com.cardshowcase.repository.CustomerRepository;
+import com.cardshowcase.security.CustomerEmail;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,7 +28,7 @@ public class CustomerAuthService {
     @Transactional
     public Customer register(RegisterDTO dto) {
         // Normalize email
-        String email = dto.getEmail().trim().toLowerCase();
+        String email = CustomerEmail.normalize(dto.getEmail());
 
         if (customerRepository.existsByEmailIgnoreCase(email)) {
             throw new IllegalStateException("An account with this email already exists.");

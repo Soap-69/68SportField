@@ -81,23 +81,12 @@ Requires a Gmail account with 2FA enabled and an App Password:
 
 ## Forgot Admin Password?
 
-**Development (local):**
+Run the recovery script from the repository root while the database container is up
+(it detects `card-showcase-db` or `card-db` and resets the first admin row to the seed credentials):
+
 ```bash
 ./reset-password.sh
 ```
 
-**Manual SQL:**
-```sql
--- BCrypt hash for 'admin123' — from V2__seed_data.sql
-UPDATE admin_users
-SET    username = 'admin',
-       password = '$2a$10$ZKK9.C8rSdyySP.OCqAQoufV1ZhxsITNoOVd897JT5VXIANvDO9PW'
-WHERE  id = 1;
-```
-
-Or generate a fresh hash for any password:
-```bash
-mvn compile exec:java -Dexec.mainClass="com.cardshowcase.util.PasswordResetUtil"
-```
-
-After reset, log in with **admin / admin123** and change your password at `/admin/settings`.
+After reset, log in with **admin / admin123** and change your password immediately at `/admin/settings`.
+The script is the only recovery path; the SQL it runs is contained in the script itself.

@@ -3,11 +3,10 @@ package com.cardshowcase.controller;
 import com.cardshowcase.model.dto.RegisterDTO;
 import com.cardshowcase.model.entity.Customer;
 import com.cardshowcase.service.CustomerAuthService;
-import com.cardshowcase.service.CustomerPrincipal;
 import com.cardshowcase.service.CustomerUserDetailsService;
 import com.cardshowcase.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -15,6 +14,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -30,6 +30,7 @@ public class CustomerAuthController {
     private final CustomerAuthService customerAuthService;
     private final CustomerUserDetailsService customerUserDetailsService;
     private final PasswordResetService passwordResetService;
+    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
     // ── Login ────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ public class CustomerAuthController {
     public String register(@Valid RegisterDTO registerDTO,
                            BindingResult bindingResult,
                            HttpServletRequest request,
+                           HttpServletResponse response,
                            RedirectAttributes redirectAttributes,
                            Model model) {
         if (bindingResult.hasErrors()) {
@@ -64,15 +66,16 @@ public class CustomerAuthController {
         try {
             Customer customer = customerAuthService.register(registerDTO);
 
-            // Auto-login: set authentication directly in the security context
+            // Auto-login. Rotate the session id first (the protection form login applies by
+            // default), then persist the authenticated context through the repository.
+            request.changeSessionId();
             UserDetails userDetails = customerUserDetailsService.loadUserByUsername(customer.getEmail());
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             SecurityContext context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);
-            HttpSession session = request.getSession(true);
-            session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+            securityContextRepository.saveContext(context, request, response);
 
             redirectAttributes.addFlashAttribute("successMessage", "Account created successfully! Welcome!");
             return "redirect:/account";
@@ -101,12 +104,8 @@ public class CustomerAuthController {
 
     @PostMapping("/forgot-password")
     public String forgotPassword(@RequestParam String email,
-                                 HttpServletRequest request,
                                  RedirectAttributes redirectAttributes) {
-        String baseUrl = request.getScheme() + "://" + request.getServerName()
-                + (request.getServerPort() != 80 && request.getServerPort() != 443
-                   ? ":" + request.getServerPort() : "");
-        passwordResetService.requestPasswordReset(email.trim().toLowerCase(), baseUrl);
+        passwordResetService.requestPasswordReset(email);
 
         redirectAttributes.addFlashAttribute("successMessage",
                 "If an account exists with this email, we've sent a reset link. Please check your inbox.");
