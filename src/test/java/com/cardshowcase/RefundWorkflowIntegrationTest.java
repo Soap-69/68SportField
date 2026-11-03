@@ -529,17 +529,13 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
 
         for (int i = 0; i < 2; i++) {
             futures.add(executor.submit(() -> {
-                try {
-                    var resp = mockMvc.perform(post("/admin/api/orders/" + order.getId() + "/refund-requests")
-                                    .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
-                                    .with(csrf())
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(refundRequestBody(order.getTotal())))
-                            .andReturn();
-                    return resp.getResponse().getStatus();
-                } catch (Exception e) {
-                    return 500;
-                }
+                var resp = mockMvc.perform(post("/admin/api/orders/" + order.getId() + "/refund-requests")
+                                .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(refundRequestBody(order.getTotal())))
+                        .andReturn();
+                return resp.getResponse().getStatus();
             }));
         }
         executor.shutdown();
@@ -549,9 +545,7 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
             statuses.add(f.get());
         }
 
-        // Exactly one submission must succeed
-        long successCount = statuses.stream().filter(s -> s == 200).count();
-        assertThat(successCount).isEqualTo(1);
+        assertThat(statuses).containsExactlyInAnyOrder(200, 422);
 
         // Exactly one PENDING_APPROVAL in database
         List<RefundRequest> rrs = refundRequestRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId());
@@ -583,15 +577,11 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
 
         for (long rrId : new long[]{rr1.getId(), rr2.getId()}) {
             futures.add(executor.submit(() -> {
-                try {
-                    var resp = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
-                                    .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
-                                    .with(csrf()))
-                            .andReturn();
-                    return resp.getResponse().getStatus();
-                } catch (Exception e) {
-                    return 500;
-                }
+                var resp = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
+                                .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                                .with(csrf()))
+                        .andReturn();
+                return resp.getResponse().getStatus();
             }));
         }
         executor.shutdown();
@@ -601,9 +591,7 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
             statuses.add(f.get());
         }
 
-        // Exactly one approval must succeed
-        long successCount = statuses.stream().filter(s -> s == 200).count();
-        assertThat(successCount).isEqualTo(1);
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
 
         // Payment refunded exactly once — one PAYMENT_REFUNDED event
         Payment payment = paymentRepository.findByOrder_Id(order.getId()).orElseThrow();
@@ -679,15 +667,11 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
 
         for (int i = 0; i < 2; i++) {
             futures.add(executor.submit(() -> {
-                try {
-                    var response = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
-                                    .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
-                                    .with(csrf()))
-                            .andReturn();
-                    return response.getResponse().getStatus();
-                } catch (Exception e) {
-                    return 500;
-                }
+                var response = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
+                                .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                                .with(csrf()))
+                        .andReturn();
+                return response.getResponse().getStatus();
             }));
         }
 
@@ -698,11 +682,7 @@ class RefundWorkflowIntegrationTest extends BaseIntegrationTest {
             statuses.add(f.get());
         }
 
-        // Exactly one 200 and one non-200 (409 or 422)
-        long successCount = statuses.stream().filter(s -> s == 200).count();
-        long failCount = statuses.stream().filter(s -> s != 200).count();
-        assertThat(successCount).isEqualTo(1);
-        assertThat(failCount).isEqualTo(1);
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
 
         // Inventory restored exactly once
         int stockAfter = inventoryService.getTotalStock(variant.getId());

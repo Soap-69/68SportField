@@ -25,6 +25,7 @@ Purpose of this file: give a fresh Claude Code session the full picture of what 
 6. **Flyway**: never edit an applied migration; confirm the next free version before adding one (latest known: V30 `create_inventory_allocations`; next is V31 unless something changed — check). Every entity/column change needs its own migration.
 7. **Business-rule values must be approved.** Do not invent prices, thresholds, or rules (an earlier invented "$100 free shipping / $9.99 otherwise" had to be ripped out). If a rule is undefined, return an explicit "deferred / requires manual quote" state.
 8. Prompts to you are in English. Yi talks to the reviewing Claude in Chinese.
+9. **User-mandated development and review constraints:** no speculative design, no overengineering, no defenses for unobserved errors, no backward compatibility, and no glue code that hides implementations or obsolete paths that should be trimmed. Use concrete current requirements and evidence when reviewing guards and error handling.
 
 ---
 
@@ -105,15 +106,16 @@ Purpose of this file: give a fresh Claude Code session the full picture of what 
 ## 5. Current state (as of this handoff)
 
 - Weeks 0–6 pushed. Week 7 + 7.1 pushed (including Review #2 fixes: PAID→PROCESSING readiness gate, `InventoryAllocation` provenance + exact refund restoration, pessimistic-lock senior-admin invariant, supplemental-shipping display clarity).
-- **Review #3 is implemented LOCALLY, NOT committed, NOT pushed. Full suite: 243 tests, 0 failures, 0 errors, 0 skipped.** Changes:
+- **Review #3 was committed and pushed as `3d45cb5` on `feature/ecommerce-v1` (fast-forward from `8b1183e`). Reviewer reran the full suite on 2026-11-02: 243 tests, 243 passed, 0 failures, 0 errors, 0 skipped (H2).** Changes:
   1. `PaymentService.deductInventory`: `if (deduct <= 0) continue;` so a leading zero-stock location no longer tries to insert a `quantity_committed = 0` allocation (which violated the V30 CHECK). Test `H_zeroStockRow_noZeroAllocationCreated_andRefundRestoresCorrectly`.
   2. Refund exactly-once per Order: `PaymentRepository.findByOrder_IdWithLock()` (PESSIMISTIC_WRITE); `submitRefundRequest` locks Payment and rejects any existing PENDING_APPROVAL (not just EXECUTED); `executeApprovalInNewTransaction` locks Payment and re-checks REFUNDED. New tests 12 (concurrent submission) and 13 (two distinct pending RRs for one order, concurrent approval → exactly one executes, one PAYMENT_REFUNDED event).
   3. `RefundService.restoreInventory` fails closed on missing/incomplete allocation provenance (RefundRequest → FAILED, Payment/Order/inventory unchanged). New test 14. `InventoryAllocationRepository` query now JOIN FETCHes `orderItem`.
-- **Manual verification of Review #3 is in progress** (Yi is doing it by hand):
+- **Manual verification results for Review #3 have not been reported to this reviewer.** Existing manual test plans:
   - Issue 1 test plan: set MA Warehouse (location 1) stock for variant 1 to 0 via SQL, buy 5 units → payment should succeed, deduct only from dealernetX.com (location 2), create exactly one allocation row; refund should restore correctly. NOTE: variant 1 (`TEST-TEST-TEST1234`) stock was last seen as MA Warehouse 6 / dealernetX.com 5 — if it was zeroed for the test, restore it afterward.
   - Issue 3 test plan: for a PAID order, delete its `inventory_allocations` rows, then approve a refund → expect 422, RefundRequest FAILED, Payment still SUCCEEDED, Order still PAID.
   - Issue 2 (true concurrency) is left to the automated tests (can't be reproduced by hand; H2 caveat applies).
-- After manual checks pass: Yi commits and pushes by hand, then the reviewer re-reviews the actual remote HEAD. GitHub has no CI; local `mvn test` output is the only evidence.
+- Follow-up review fix is local and uncommitted: remove exception-to-500 wrappers from all four refund concurrency tests (including inventory-allocation coverage) and require exact response pairs (submission: 200/422; approval: 200/409). Final follow-up validation on 2026-11-02: 243 tests run, 243 passed, 0 failures, 0 errors, 0 skipped; Maven BUILD SUCCESS. H2 only; PostgreSQL concurrency and browser behavior were not validated. Yi handles commit/push explicitly.
+- Both additional P2 findings are fixed locally, uncommitted: inventory concurrency coverage now accepts only `InsufficientStockException` / `ObjectOptimisticLockingFailureException`, propagates unexpected task failures through `Future.get()`, requires 1..10 successful deductions, and shuts down its executor in `finally`. Featured carousel links now use `/product/{slug}`; redundant initial slide construction and the unused backward-compatible `banners` model attribute were removed. Final full suite on 2026-11-02: 243 run, 243 passed, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS. Review of these changes found no further actionable issues. H2 only; browser interaction and PostgreSQL concurrency were not tested. Do not commit or push without Yi's explicit instruction.
 - Test data notes: a few test orders exist in the local DB (ids 3–14). Local DB has two admin accounts: `admin` (promoted to SENIOR_ADMIN via SQL) and `admin_123` (ADMIN).
 
 ### Verified-by-hand so far (Weeks 4–7.1)
@@ -122,6 +124,7 @@ Guest + logged-in checkout, address snapshot immutability, idempotency (same key
 ---
 
 ## 6. Known gaps / backlog (none scheduled unless noted)
+
 
 - Checkout has no Ground vs Next Day Air selector (all orders default to GROUND; backend fully supports both).
 - State field is free text (idea: dropdown of valid US states; address autocomplete would derive city/state from zip, not the reverse).
@@ -147,6 +150,6 @@ Guest + logged-in checkout, address snapshot immutability, idempotency (same key
 
 ## 8. Immediate next steps
 
-1. Wait for Yi's manual verification results on Review #3 (Issue 1 and Issue 3). Do not commit/push on your own.
+1. Review #3 is pushed; the follow-up test/documentation corrections are local and fully tested. Yi decides commit/push. Manual PostgreSQL verification results remain unreported to this reviewer.
 2. If a manual check fails, fix only that defect, rerun the full suite, report exact counts, stop.
 3. When asked to start Week 8, expect a prompt with explicit scope, frozen-architecture list and "Do NOT" list; confirm the next Flyway version first.

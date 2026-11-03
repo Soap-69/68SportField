@@ -1,5 +1,6 @@
 package com.cardshowcase.service;
 
+import com.cardshowcase.exception.InsufficientStockException;
 import com.cardshowcase.model.entity.*;
 import com.cardshowcase.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,8 +8,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -92,7 +96,7 @@ class InventoryServiceConcurrencyTest {
     }
 
     @Test
-    void concurrentStockAdjustmentShouldNotOversell() throws InterruptedException {
+    void concurrentStockAdjustmentShouldNotOversell() throws Exception {
         final int threadCount   = 20;
         final int initialStock  = 10;
 
@@ -101,24 +105,29 @@ class InventoryServiceConcurrencyTest {
         AtomicInteger   successCount  = new AtomicInteger(0);
         AtomicInteger   failCount     = new AtomicInteger(0);
 
-        for (int i = 0; i < threadCount; i++) {
-            executor.submit(() -> {
-                try {
-                    inventoryService.adjustStock(variantId, locationId, -1);
-                    successCount.incrementAndGet();
-                } catch (Exception e) {
-                    // InsufficientStockException or exhausted-retry OptimisticLockException
-                    failCount.incrementAndGet();
-                } finally {
-                    latch.countDown();
-                }
-            });
+        List<Future<?>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                futures.add(executor.submit(() -> {
+                    try {
+                        inventoryService.adjustStock(variantId, locationId, -1);
+                        successCount.incrementAndGet();
+                    } catch (InsufficientStockException | ObjectOptimisticLockingFailureException e) {
+                        failCount.incrementAndGet();
+                    } finally {
+                        latch.countDown();
+                    }
+                }));
+            }
+
+            assertThat(latch.await(30, TimeUnit.SECONDS))
+                    .as("all threads should finish within 30s").isTrue();
+            for (Future<?> future : futures) {
+                future.get();
+            }
+        } finally {
+            executor.shutdownNow();
         }
-
-        boolean completed = latch.await(30, TimeUnit.SECONDS);
-        executor.shutdown();
-
-        assertThat(completed).as("all threads should finish within 30s").isTrue();
 
         int finalStock = inventoryService.getTotalStock(variantId);
 
@@ -127,10 +136,10 @@ class InventoryServiceConcurrencyTest {
                 .as("final stock must not be negative")
                 .isGreaterThanOrEqualTo(0);
 
-        // Can't sell more units than were available
+        // Require real progress without selling more units than were available
         assertThat(successCount.get())
-                .as("successful deductions must not exceed initial stock")
-                .isLessThanOrEqualTo(initialStock);
+                .as("at least one deduction must succeed, without exceeding initial stock")
+                .isBetween(1, initialStock);
 
         // Every thread must have reported success or failure
         assertThat(successCount.get() + failCount.get())

@@ -395,15 +395,11 @@ class InventoryAllocationIntegrationTest extends BaseIntegrationTest {
 
         for (int i = 0; i < 2; i++) {
             futures.add(executor.submit(() -> {
-                try {
-                    var resp = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
-                                    .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
-                                    .with(csrf()))
-                            .andReturn();
-                    return resp.getResponse().getStatus();
-                } catch (Exception e) {
-                    return 500;
-                }
+                var resp = mockMvc.perform(post("/admin/api/refund-requests/" + rrId + "/approve")
+                                .with(user(seniorAdmin.getUsername()).roles("SENIOR_ADMIN"))
+                                .with(csrf()))
+                        .andReturn();
+                return resp.getResponse().getStatus();
             }));
         }
         executor.shutdown();
@@ -413,8 +409,7 @@ class InventoryAllocationIntegrationTest extends BaseIntegrationTest {
             statuses.add(f.get());
         }
 
-        long successes = statuses.stream().filter(s -> s == 200).count();
-        assertThat(successes).isEqualTo(1);
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
 
         // Allocation restored exactly once
         int stockAfterRefund = inventoryService.getTotalStock(variant.getId());

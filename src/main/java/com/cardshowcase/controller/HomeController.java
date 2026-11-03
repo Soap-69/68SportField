@@ -27,24 +27,13 @@ public class HomeController {
         List<Banner>  banners         = bannerService.getActiveBanners();
         List<Product> featuredProducts = productService.getFeaturedProducts(6);
 
-        List<CarouselSlide> carouselSlides = new ArrayList<>();
-        for (Banner b : banners) {
-            carouselSlides.add(new CarouselSlide(b.getImageUrl(), b.getTitle(), b.getLinkUrl()));
-        }
-        for (Product p : featuredProducts) {
-            // Use primary image; will be resolved via primaryImages map if needed
-            carouselSlides.add(new CarouselSlide(null, p.getName(),
-                    "/products/" + p.getSlug()));
-        }
-
         // Resolve primary images for featured products
         List<Long> featuredIds = featuredProducts.stream().map(Product::getId).toList();
         Map<Long, String> featuredImages = featuredIds.isEmpty()
                 ? Map.of()
                 : productService.getPrimaryImageUrls(featuredIds);
 
-        // Re-build slides with correct image URLs
-        carouselSlides.clear();
+        List<CarouselSlide> carouselSlides = new ArrayList<>();
         for (Banner b : banners) {
             carouselSlides.add(new CarouselSlide(b.getImageUrl(), b.getTitle(), b.getLinkUrl()));
         }
@@ -52,7 +41,7 @@ public class HomeController {
             String imgUrl = featuredImages.get(p.getId());
             if (imgUrl != null) {
                 carouselSlides.add(new CarouselSlide(imgUrl, p.getName(),
-                        "/products/" + p.getSlug()));
+                        "/product/" + p.getSlug()));
             }
         }
 
@@ -73,7 +62,6 @@ public class HomeController {
                 : productService.getPrimaryImageUrls(allIds);
 
         model.addAttribute("carouselSlides",      carouselSlides);
-        model.addAttribute("banners",             banners);          // kept for backward compat
         model.addAttribute("trendingProducts",    trending);
         model.addAttribute("newProducts",         newProducts);
         model.addAttribute("bestSellerProducts",  bestSellers);
