@@ -406,79 +406,81 @@
                     <i class="bi bi-box fs-3 d-block mb-2"></i>
                     No variants yet. Add a Box or Sealed Case variant.
                 </div>
-                <table th:unless="${#lists.isEmpty(variants)}"
-                       class="table table-hover align-middle mb-0" style="font-size:.875rem;">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-3">Type</th>
-                            <th>SKU</th>
-                            <th style="width:110px;">Price</th>
-                            <th style="width:110px;">Sale Price</th>
-                            <th style="width:90px;">Weight (lbs)</th>
-                            <th class="text-center" style="width:70px;">Stock</th>
-                            <th class="text-center" style="width:80px;">Status</th>
-                            <th class="text-end pe-3" style="width:120px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="v : ${variants}">
-                            <td class="ps-3 fw-medium">
-                                <span th:text="${v.variantType == 'BOX'} ? 'Box' : 'Sealed Case'">Box</span>
-                            </td>
-                            <td class="text-muted small" th:text="${v.sku ?: '—'}"></td>
-                            <td>
-                                <span th:text="${'$' + #numbers.formatDecimal(v.price, 1, 'COMMA', 2, 'POINT')}"></span>
-                            </td>
-                            <td class="text-muted small">
-                                <span th:if="${v.salePrice != null}"
-                                      th:text="${'$' + #numbers.formatDecimal(v.salePrice, 1, 'COMMA', 2, 'POINT')}"></span>
-                                <span th:unless="${v.salePrice != null}">—</span>
-                            </td>
-                            <td class="text-muted small">
-                                <span th:if="${v.weight != null}" th:text="${v.weight}"></span>
-                                <span th:unless="${v.weight != null}">—</span>
-                            </td>
-                            <td class="text-center">
-                                <span th:with="stk=${variantStocks != null ? variantStocks[v.id] : 0}">
-                                    <span th:if="${stk != null and stk > 0}"
-                                          class="badge bg-success"
-                                          th:text="${stk}">0</span>
-                                    <span th:unless="${stk != null and stk > 0}"
-                                          class="badge bg-secondary">0</span>
-                                </span>
-                            </td>
-                            <td class="text-center">
-                                <span th:class="${v.isActive} ? 'badge bg-success' : 'badge bg-secondary'"
-                                      th:text="${v.isActive} ? 'Active' : 'Inactive'"></span>
-                            </td>
-                            <td class="text-end pe-3">
-                                <div class="d-flex justify-content-end gap-1">
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-primary"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#variantModal"
-                                            data-action="edit"
-                                            th:attr="data-variant-id=${v.id},
-                                                     data-variant-type=${v.variantType},
-                                                     data-sku=${v.sku ?: ''},
-                                                     data-price=${v.price},
-                                                     data-sale-price=${v.salePrice ?: ''},
-                                                     data-weight=${v.weight ?: ''},
-                                                     data-active=${v.isActive}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <form th:action="@{/admin/products/{pid}/variants/{vid}/delete(pid=${product.id},vid=${v.id})}"
-                                          method="post" class="m-0"
-                                          onsubmit="return confirm('Delete this variant and its inventory records?')">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash3"></i>
+                <div th:unless="${#lists.isEmpty(variants)}" class="table-responsive" tabindex="0" role="region" aria-label="Product variants">
+                    <table
+                           class="table table-hover align-middle mb-0" style="font-size:.875rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Type</th>
+                                <th>SKU</th>
+                                <th style="width:110px;">Price</th>
+                                <th style="width:110px;">Sale Price</th>
+                                <th style="width:90px;">Weight (lbs)</th>
+                                <th class="text-center" style="width:70px;">Stock</th>
+                                <th class="text-center" style="width:80px;">Status</th>
+                                <th class="text-end pe-3" style="width:120px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="v : ${variants}">
+                                <td class="ps-3 fw-medium">
+                                    <span th:text="${v.variantType == 'BOX'} ? 'Box' : 'Sealed Case'">Box</span>
+                                </td>
+                                <td class="text-muted small" th:text="${v.sku ?: '—'}"></td>
+                                <td>
+                                    <span th:text="${'$' + #numbers.formatDecimal(v.price, 1, 'COMMA', 2, 'POINT')}"></span>
+                                </td>
+                                <td class="text-muted small">
+                                    <span th:if="${v.salePrice != null}"
+                                          th:text="${'$' + #numbers.formatDecimal(v.salePrice, 1, 'COMMA', 2, 'POINT')}"></span>
+                                    <span th:unless="${v.salePrice != null}">—</span>
+                                </td>
+                                <td class="text-muted small">
+                                    <span th:if="${v.weight != null}" th:text="${v.weight}"></span>
+                                    <span th:unless="${v.weight != null}">—</span>
+                                </td>
+                                <td class="text-center">
+                                    <span th:with="stk=${variantStocks != null ? variantStocks[v.id] : 0}">
+                                        <span th:if="${stk != null and stk > 0}"
+                                              class="badge bg-success"
+                                              th:text="${stk}">0</span>
+                                        <span th:unless="${stk != null and stk > 0}"
+                                              class="badge bg-secondary">0</span>
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span th:class="${v.isActive} ? 'badge bg-success' : 'badge bg-secondary'"
+                                          th:text="${v.isActive} ? 'Active' : 'Inactive'"></span>
+                                </td>
+                                <td class="text-end pe-3">
+                                    <div class="d-flex justify-content-end gap-1">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#variantModal"
+                                                data-action="edit"
+                                                th:attr="data-variant-id=${v.id},
+                                                         data-variant-type=${v.variantType},
+                                                         data-sku=${v.sku ?: ''},
+                                                         data-price=${v.price},
+                                                         data-sale-price=${v.salePrice ?: ''},
+                                                         data-weight=${v.weight ?: ''},
+                                                         data-active=${v.isActive}">
+                                            <i class="bi bi-pencil"></i>
                                         </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                        <form th:action="@{/admin/products/{pid}/variants/{vid}/delete(pid=${product.id},vid=${v.id})}"
+                                              method="post" class="m-0"
+                                              onsubmit="return confirm('Delete this variant and its inventory records?')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 

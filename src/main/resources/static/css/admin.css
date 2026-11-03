@@ -155,7 +155,6 @@ body {
 .cs-main {
     flex: 1;
     padding: 1.5rem;
-    overflow-x: hidden;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -179,11 +178,6 @@ body {
 
 .card-body {
     padding: 1.25rem;
-}
-
-/* Prevent horizontal overflow on small screens */
-@media (max-width: 991.98px) {
-    .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -216,7 +210,7 @@ body {
 }
 
 @media (max-width: 991.98px) {
-    .table { min-width: 560px; }
+    .table-responsive > .table { min-width: 560px; }
 }
 
 /* ════════════════════════════════════════════════════════════════
