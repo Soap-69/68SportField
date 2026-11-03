@@ -11,7 +11,7 @@ Purpose of this file: give a fresh Claude Code session the full picture of what 
 - Repo: `Soap-69/68SportField`, branch `feature/ecommerce-v1`. Local dir `C:\Users\18572\cardshop` (Git Bash on Windows). DB runs in Docker container `card-db` (database `card_showcase`).
 - Interactive Docker on MINGW64 needs `winpty`: `winpty docker exec -it card-db psql -U postgres -d card_showcase`
 - Production: AWS Lightsail + Cloudflare at https://68sportfield.com (not part of this work stream).
-- Roles of the tools: Claude (chat) = architect/reviewer/prompt writer; Claude Code = implementer; the human (Yi) does manual browser testing and manual commit/push.
+- Current workflow: Codex is the reviewer and maintains this handoff; Claude Code performs the approved implementation; Yi makes business/deployment decisions and authorizes commits, pushes and deployment. Follow the current task authorization rather than assuming any tool may publish changes.
 
 ---
 
@@ -19,10 +19,10 @@ Purpose of this file: give a fresh Claude Code session the full picture of what 
 
 1. **Do exactly what the prompt scopes. Nothing else.** Every prompt has a "Do NOT" list; obey it. Do not refactor "while you're here". Do not touch frozen architecture (section 4).
 2. **Never overwrite files from a stale worktree.** Two incidents: a Week 7.1 run rebuilt `SecurityConfig.java` from the Week 6 commit and destroyed the dual-chain security setup (admin 405 on POST `/admin/login`, customer auth gone), and also overwrote `admin/layout.html` (lost the Orders and Inventory nav links). Always edit the CURRENT working tree; never regenerate a whole config/layout file from an older commit.
-3. **Do not commit or push unless the prompt explicitly says so.** The latest prompt (Review #3) says: implement, run full tests, report, STOP. Yi reviews and commits/pushes manually.
+3. **Do not commit or push unless the current prompt explicitly says so.** Approval to review, implement or commit is not approval to push or deploy. Week 9 begins with Phase A only; Phase B requires explicit approval.
 4. **Report exact numbers**: Tests run / Passed / Failed / Errors / Skipped. Never write "verified" for something you did not actually run. If a concurrency scenario cannot be reliably proven in the test environment, say so; never present a sequential test as a concurrency test.
 5. **Completion reports are not trusted by themselves.** Reviewers diff the actual code. Past incident: commit messages claimed fixes that were not in the pushed diff. Report honestly what changed, file by file.
-6. **Flyway**: never edit an applied migration; confirm the next free version before adding one (latest known: V30 `create_inventory_allocations`; next is V31 unless something changed — check). Every entity/column change needs its own migration.
+6. **Flyway**: never edit an applied migration; confirm the next free version before adding one (latest confirmed: V31 `create_notification_log`; next is V32 unless something changed — check). Every entity/column change needs its own migration.
 7. **Business-rule values must be approved.** Do not invent prices, thresholds, or rules (an earlier invented "$100 free shipping / $9.99 otherwise" had to be ripped out). If a rule is undefined, return an explicit "deferred / requires manual quote" state.
 8. Prompts to you are in English. Yi talks to the reviewing Claude in Chinese.
 9. **User-mandated development and review constraints:** no speculative design, no overengineering, no defenses for unobserved errors, no backward compatibility, and no glue code that hides implementations or obsolete paths that should be trimmed. Use concrete current requirements and evidence when reviewing guards and error handling.
@@ -103,23 +103,26 @@ Purpose of this file: give a fresh Claude Code session the full picture of what 
 
 ---
 
-## 5. Current state (as of this handoff)
+## 5. Current state (2026-11-03; Week 8 closed)
 
-- Weeks 0–6 pushed. Week 7 + 7.1 pushed (including Review #2 fixes: PAID→PROCESSING readiness gate, `InventoryAllocation` provenance + exact refund restoration, pessimistic-lock senior-admin invariant, supplemental-shipping display clarity).
-- **Review #3 was committed and pushed as `3d45cb5` on `feature/ecommerce-v1` (fast-forward from `8b1183e`). Reviewer reran the full suite on 2026-11-02: 243 tests, 243 passed, 0 failures, 0 errors, 0 skipped (H2).** Changes:
-  1. `PaymentService.deductInventory`: `if (deduct <= 0) continue;` so a leading zero-stock location no longer tries to insert a `quantity_committed = 0` allocation (which violated the V30 CHECK). Test `H_zeroStockRow_noZeroAllocationCreated_andRefundRestoresCorrectly`.
-  2. Refund exactly-once per Order: `PaymentRepository.findByOrder_IdWithLock()` (PESSIMISTIC_WRITE); `submitRefundRequest` locks Payment and rejects any existing PENDING_APPROVAL (not just EXECUTED); `executeApprovalInNewTransaction` locks Payment and re-checks REFUNDED. New tests 12 (concurrent submission) and 13 (two distinct pending RRs for one order, concurrent approval → exactly one executes, one PAYMENT_REFUNDED event).
-  3. `RefundService.restoreInventory` fails closed on missing/incomplete allocation provenance (RefundRequest → FAILED, Payment/Order/inventory unchanged). New test 14. `InventoryAllocationRepository` query now JOIN FETCHes `orderItem`.
-- **Manual verification results for Review #3 have not been reported to this reviewer.** Existing manual test plans:
-  - Issue 1 test plan: set MA Warehouse (location 1) stock for variant 1 to 0 via SQL, buy 5 units → payment should succeed, deduct only from dealernetX.com (location 2), create exactly one allocation row; refund should restore correctly. NOTE: variant 1 (`TEST-TEST-TEST1234`) stock was last seen as MA Warehouse 6 / dealernetX.com 5 — if it was zeroed for the test, restore it afterward.
-  - Issue 3 test plan: for a PAID order, delete its `inventory_allocations` rows, then approve a refund → expect 422, RefundRequest FAILED, Payment still SUCCEEDED, Order still PAID.
-  - Issue 2 (true concurrency) is left to the automated tests (can't be reproduced by hand; H2 caveat applies).
-- Follow-up review fix is local and uncommitted: remove exception-to-500 wrappers from all four refund concurrency tests (including inventory-allocation coverage) and require exact response pairs (submission: 200/422; approval: 200/409). Final follow-up validation on 2026-11-02: 243 tests run, 243 passed, 0 failures, 0 errors, 0 skipped; Maven BUILD SUCCESS. H2 only; PostgreSQL concurrency and browser behavior were not validated. Yi handles commit/push explicitly.
-- Both additional P2 findings are fixed locally, uncommitted: inventory concurrency coverage now accepts only `InsufficientStockException` / `ObjectOptimisticLockingFailureException`, propagates unexpected task failures through `Future.get()`, requires 1..10 successful deductions, and shuts down its executor in `finally`. Featured carousel links now use `/product/{slug}`; redundant initial slide construction and the unused backward-compatible `banners` model attribute were removed. Final full suite on 2026-11-02: 243 run, 243 passed, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS. Review of these changes found no further actionable issues. H2 only; browser interaction and PostgreSQL concurrency were not tested. Do not commit or push without Yi's explicit instruction.
-- Test data notes: a few test orders exist in the local DB (ids 3–14). Local DB has two admin accounts: `admin` (promoted to SENIOR_ADMIN via SQL) and `admin_123` (ADMIN).
+- Branch: `feature/ecommerce-v1`; local HEAD `f9a53f8`. Yi reports that `origin/feature/ecommerce-v1` was checked after push and matches local HEAD, with no ahead/behind. This remote result is user-confirmed, not a new remote fetch performed for this documentation update.
+- Weeks 0–8 are complete. Week 7 follow-up fixes were committed in `dc5eee7`; they are no longer pending working-tree changes. Their order/payment/refund invariants remain documented in section 4.
+- `6f6828e` — Week 8 transactional order notifications, PDF invoices, tax skeleton, and review fixes. V31 adds `notification_log` with `UNIQUE(order_id, type)`. Enqueue is in the business transaction; sending is after commit. Automatic sends and manual resends share the atomic claim path; disabled skips do not increment attempts. SENT/SENDING rows are not resent. The guarantee is one delivery attempt per successful claim, not exactly-once end-to-end SMTP delivery. No scheduler or external queue was added.
+- Six email templates: order received (explicitly unpaid), payment confirmed with invoice, shipped, supplemental shipping payment requested, refund executed, and admin new paid order. Existing business state machines and transaction invariants remain authoritative.
+- PDF: OpenPDF 2.0.5, generated on demand without disk persistence; uses the order's main-payment snapshot amounts, not supplemental-shipping effective totals. Refunds retain original invoice amounts and add a refunded marker/date. Customer authorization precedes invoice availability checks. Bundled Noto Sans and Noto Sans CJK SC fonts include source/license files; reviewer accepted the roughly 16 MB CJK font in Git history. PDFs embed font subsets.
+- `TaxService.calculateTax(subtotal)` currently returns `0.00`; this is a deferred tax implementation, not a production tax determination.
+- `f9a53f8` — admin narrow-screen table fix. Data tables scroll in individual Bootstrap `table-responsive` regions; the totals table is no longer forced to 560 px. Existing UI style is preserved. Browser validation covered 304, 390, 768 and 1280 px, right-side action accessibility, notification resend and product edit modal behavior.
+- **Reviewer final full-suite run on 2026-11-03 at `f9a53f8`: 276 tests run / 276 passed / 0 failures / 0 errors / 0 skipped; Maven BUILD SUCCESS (H2). Both Week 8 commits passed review with no outstanding P-level findings in the reviewed scope.** The 243-test Week 7 baseline and initial 270-test Week 8 report are historical, not the current baseline.
+- Separate isolated PostgreSQL/Mailpit verification covered migrations V1–V31, notification claim/resend concurrency and real HTTP/browser flows. This was targeted verification, not a full PostgreSQL test-suite run. Temporary verification containers/data were removed; `card-db` was left stopped and untouched. PDF visual checks used system-rendered images, not an embedded browser PDF viewer. Some earlier implementer Mailpit records were lost on receiver deletion; do not describe all historical raw mail evidence as retained.
+- `.claude/settings.local.json` has unrelated local modifications and was excluded from both Week 8 commits. Do not overwrite, stage or commit it with future work.
 
-### Verified-by-hand so far (Weeks 4–7.1)
-Guest + logged-in checkout, address snapshot immutability, idempotency (same key → same Payment; cross-order key → 409), manual-confirm success/DECLINED/insufficient-stock/retry, 403 on non-owner order access, AK/HI full shipping lifecycle with zero Payment-table pollution, free/manual-quote shipping display on checkout + both detail pages, tracking-before-dispatch guard, dispatch atomicity, refund on SHIPPED (no restock) and PAID (restock), multi-location exact restoration (6+2 → 6/5), readiness gate blocking PROCESSING while shipping unresolved, CSV allowlist and effective shipping amounts, admin self-disable/self-demote blocked, mobile checkout layout.
+### Outstanding facts and production deployment gate
+
+- Merchant display name, invoice legal company name and address are still unconfirmed. Empty configuration omits the corresponding signature/footer; do not invent business identity.
+- Reply-To and intended admin recipient are `order@68sportfield.com`; the approved site URL is `https://68sportfield.com`. The intended mailbox does not prove that production `ADMIN_EMAIL` or SMTP credentials are configured.
+- Confirm production JVM default timezone (`TZ`, `-Duser.timezone`, image defaults), historical changes, and the write timezone of existing order/payment/shipment rows. `BusinessTimeFormatter` interprets stored `LocalDateTime` values using the current JVM default zone and displays America/New_York with ET; this is only correct when the relevant historical write zone matches the current process zone.
+- Confirm actual production SMTP sender, authentication method, `MAIL_USERNAME`, `MAIL_PASSWORD`, `ADMIN_EMAIL` and `APP_NOTIFICATION_ENABLED`, and verify delivery when explicitly authorized. Record confirmation/results, never secrets.
+- **Review/push approval is not deployment approval. Do not deploy this build until the production timezone/history prerequisite is confirmed. The gate covers both email and invoice downloads; setting `APP_NOTIFICATION_ENABLED=false` alone does not satisfy it.** Carry all missing business/deployment facts into final acceptance and launch review; do not silently mark them done.
 
 ---
 
@@ -129,7 +132,7 @@ Guest + logged-in checkout, address snapshot immutability, idempotency (same key
 - Checkout has no Ground vs Next Day Air selector (all orders default to GROUND; backend fully supports both).
 - State field is free text (idea: dropdown of valid US states; address autocomplete would derive city/state from zip, not the reverse).
 - Admin refund "reason" is auto-filled and not editable (intentional for full-refund-only; consider an optional reason input later).
-- Homepage mobile navbar at ~340–430px px hides login/account icons (pre-existing since before Week 4).
+- Homepage mobile navbar at ~340–430 px still hides login/account icons (pre-existing since before Week 4; unresolved). The separate admin 304 px table-clipping issue was fixed in `f9a53f8`; do not conflate them.
 - Intermittent single 403 on the customer login form was seen twice in Weeks 2–3; targeted CSRF-failure logging is in place; not reproduced since.
 - AK/HI and Ground < $500 two-step shipping payment should collapse to one checkout payment once a UPS rate API (Week 10) and/or an approved <$500 pricing rule exists.
 - Supplemental-shipping refunds, partial refunds, returns/warehouse restock policy, real provider refunds: all deferred (Week 10+).
@@ -138,9 +141,9 @@ Guest + logged-in checkout, address snapshot immutability, idempotency (same key
 
 ---
 
-## 7. Roadmap (revised 12-week plan; Weeks 0–7.1 done)
+## 7. Roadmap (revised 12-week plan; Weeks 0–8 done)
 
-- **Week 8**: transactional emails + PDF invoice + tax skeleton (the checkout page currently says "we'll send a confirmation", but no email is sent yet).
+- **Week 8 — complete**: transactional emails, PDF invoices, tax skeleton, review fixes and admin narrow-screen table repair. Production deployment remains gated as described in section 5.
 - **Week 9**: security audit / brute-force protection (customer order history was already delivered early in Week 4).
 - **Week 10**: real payment providers behind the existing `PaymentGateway` (Authorize.net via Accept.js; PayPal if credentials are delayed), webhook handling with signature verification and `event_id` dedupe, supplemental-shipping payment modeling decision (Order 1→N Payments with a purpose, or ShippingCharge + provider reference), real UPS rate API.
 - **Week 11**: E2E tests (payment matrix, shipping matrix, edge cases); consider Testcontainers.
@@ -150,6 +153,8 @@ Guest + logged-in checkout, address snapshot immutability, idempotency (same key
 
 ## 8. Immediate next steps
 
-1. Review #3 is pushed; the follow-up test/documentation corrections are local and fully tested. Yi decides commit/push. Manual PostgreSQL verification results remain unreported to this reviewer.
-2. If a manual check fails, fix only that defect, rerun the full suite, report exact counts, stop.
-3. When asked to start Week 8, expect a prompt with explicit scope, frozen-architecture list and "Do NOT" list; confirm the next Flyway version first.
+1. Begin **Week 9 Phase A: security audit and brute-force protection proposal only**. Read the current worktree and the reviewer's Phase A prompt. Produce evidence-backed findings, the smallest implementation proposal, unresolved decisions and a test matrix; do not begin Phase B until explicitly approved.
+2. Recheck actual Flyway files before any schema work. Latest confirmed migration is V31; V32 is the next available number, not an instruction to create a migration. Add one only if the approved implementation changes the database.
+3. Preserve both Spring Security chains, current authorization/CSRF behavior, checkout/payment/refund invariants and customer cart-merge behavior. Apply the five rules in section 2.9; do not add speculative platforms, compatibility paths or broad refactors.
+4. Keep verification isolated from `card-db`, `card_showcase` and production. Use synthetic accounts/data and a local mail receiver where needed. Report exact test counts and distinguish H2 tests, PostgreSQL evidence and real browser checks.
+5. Keep the homepage mobile navigation issue in backlog unless separately scoped. Maintain section 5's business/deployment gates through final acceptance. Do not commit, push, deploy or send external mail without applicable user authorization; exclude `.claude/settings.local.json` from task commits.
